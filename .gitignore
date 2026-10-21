@@ -1,0 +1,25 @@
+# third-party clones and large assets
+third_party/
+assets.zip
+*.pruned_init.bak
+
+# videos and raw observations (shared drive, not git)
+videos/
+raw_obs/
+*.mp4
+*.npz
+
+# E5 blinding key
+**/e5_key*.csv
+
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+.ipynb_checkpoints/
+.venv/
+
+# misc
+.DS_Store
+wandb/
+results/smoke/
