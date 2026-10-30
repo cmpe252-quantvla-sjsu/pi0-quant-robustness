@@ -1,0 +1,196 @@
+From 8234f60f06c7c4c655b9b5847a29a243138feb20 Mon Sep 17 00:00:00 2001
+From: Amina Akhtar <aminaakhtar801@gmail.com>
+Date: Tue, 20 Oct 2026 12:37:43 -0700
+Subject: [PATCH 2/3] Seed pi0 episode noise from the logged episode seed so
+ resumed runs stay matched
+
+---
+ tests/test_episode_seed.py          | 113 ++++++++++++++++++++++++++++
+ vlaquantbench/benchmarks/base.py    |   6 +-
+ vlaquantbench/models/pi0_lerobot.py |  17 ++++-
+ 3 files changed, 134 insertions(+), 2 deletions(-)
+ create mode 100644 tests/test_episode_seed.py
+
+diff --git a/tests/test_episode_seed.py b/tests/test_episode_seed.py
+new file mode 100644
+index 0000000..71d9d4a
+--- /dev/null
++++ b/tests/test_episode_seed.py
+@@ -0,0 +1,113 @@
++"""The flow-matching noise of an episode must not depend on run history.
++
++π0/π0.5 sample their action-chunk noise from the global torch RNG, which the
++adapter seeds in ``reset``. Upstream, that seed is a chain advanced on every
++reset, so episode k's noise depends on how many episodes ran *before it in this
++process*. A resumed run (episodes already in the JSONL are skipped) therefore
++gives the remaining episodes different noise from an uninterrupted run, while
++the JSONL still logs the same ``seed``. That silently breaks matched-episode
++pairing across precision settings and makes a NOOP-vs-BASELINE parity check
++fail for reasons unrelated to the quantization path.
++
++The fix: the runner hands the adapter the logged episode seed before each
++episode, and the adapter seeds torch / numpy with exactly that value.
++"""
++from typing import Any
++
++import torch
++
++from vlaquantbench.benchmarks.base import BenchmarkRunner, EpisodeOutcome
++from vlaquantbench.models.base import TaskSpec
++from vlaquantbench.models.pi0_lerobot import Pi0Adapter
++
++
++class _StubPolicy:
++    def reset(self):
++        pass
++
++
++class _ToyBench(BenchmarkRunner):
++    name = "toy"
++
++    @classmethod
++    def suites(cls):
++        return ("toy_suite",)
++
++    @classmethod
++    def default_episodes_per_task(cls):
++        return 5
++
++    def tasks(self):
++        return [TaskSpec("toy", "toy_suite", t, f"task{t}", "do it", 10) for t in range(2)]
++
++    def run_episode(self, adapter, task, episode, meter) -> EpisodeOutcome:
++        adapter.reset(task)
++        noise = torch.randn(3)  # stands in for the flow-matching noise A^0
++        return EpisodeOutcome(success=True, steps=1, extra={"noise": noise.tolist()})
++
++
++class _FakeWriter:
++    """Minimal RunWriter: remembers finished episodes so the runner can skip them."""
++
++    def __init__(self, done: set | None = None):
++        self.done = set(done or ())
++        self.records: list[Any] = []
++
++    def is_done(self, suite, task_id, episode):
++        return (suite, task_id, episode) in self.done
++
++    def add(self, rec):
++        self.done.add((rec.suite, rec.task_id, rec.episode))
++        self.records.append(rec)
++
++
++def _adapter(seed=0):
++    a = Pi0Adapter("stub-checkpoint", device="cpu", seed=seed)
++    a.policy = _StubPolicy()  # load() needs lerobot; reset() only needs policy.reset()
++    return a
++
++
++def _noise_by_episode(records):
++    return {(r.task_id, r.episode): r.extra["noise"] for r in records}
++
++
++def test_resumed_run_reproduces_uninterrupted_noise():
++    full = _FakeWriter()
++    _ToyBench("toy_suite").run(_adapter(), full)
++    want = _noise_by_episode(full.records)
++
++    # "crash" after the first 3 episodes of task 0, then resume in a fresh process
++    first = _FakeWriter()
++    bench = _ToyBench("toy_suite")
++    bench.run(_adapter(), first, tasks=bench.tasks()[:1], episodes=range(3))
++    resumed = _FakeWriter(done=first.done)
++    _ToyBench("toy_suite").run(_adapter(), resumed)
++    got = {**_noise_by_episode(first.records), **_noise_by_episode(resumed.records)}
++
++    assert got.keys() == want.keys()
++    assert got == want
++
++
++def test_running_a_subset_does_not_shift_noise():
++    full = _FakeWriter()
++    _ToyBench("toy_suite").run(_adapter(), full)
++    want = _noise_by_episode(full.records)
++    sub = _FakeWriter()
++    bench = _ToyBench("toy_suite")
++    bench.run(_adapter(), sub, tasks=bench.tasks()[1:], episodes=[4])
++    assert _noise_by_episode(sub.records)[(1, 4)] == want[(1, 4)]
++
++
++def test_logged_seed_is_the_seed_actually_used():
++    w = _FakeWriter()
++    _ToyBench("toy_suite", seed=3).run(_adapter(seed=3), w)
++    for rec in w.records:
++        torch.manual_seed(rec.seed)
++        assert torch.randn(3).tolist() == rec.extra["noise"]
++
++
++def test_distinct_episodes_get_distinct_noise():
++    w = _FakeWriter()
++    _ToyBench("toy_suite").run(_adapter(), w)
++    noises = [tuple(n) for n in _noise_by_episode(w.records).values()]
++    assert len(set(noises)) == len(noises)
+diff --git a/vlaquantbench/benchmarks/base.py b/vlaquantbench/benchmarks/base.py
+index dc89e5b..b290636 100644
+--- a/vlaquantbench/benchmarks/base.py
++++ b/vlaquantbench/benchmarks/base.py
+@@ -105,6 +105,10 @@ class BenchmarkRunner(abc.ABC):
+                 meter = LatencyMeter(warmup=3)
+                 infer = adapter.new_inference_meter(warmup=1)
+                 reset_peak_memory()
++                ep_seed = self.episode_seed(task, ep)
++                if hasattr(adapter, "set_episode_seed"):
++                    # history-independent noise: the logged seed is the seed actually used
++                    adapter.set_episode_seed(ep_seed)
+                 t0 = time.perf_counter()
+                 outcome = self.run_episode(adapter, task, ep, meter)
+                 rec = EpisodeRecord(
+@@ -112,7 +116,7 @@ class BenchmarkRunner(abc.ABC):
+                     task_id=task.task_id,
+                     task_name=task.task_name,
+                     episode=ep,
+-                    seed=self.episode_seed(task, ep),
++                    seed=ep_seed,
+                     success=bool(outcome.success),
+                     steps=int(outcome.steps),
+                     wall_time_s=time.perf_counter() - t0,
+diff --git a/vlaquantbench/models/pi0_lerobot.py b/vlaquantbench/models/pi0_lerobot.py
+index 8dcd478..44386b9 100644
+--- a/vlaquantbench/models/pi0_lerobot.py
++++ b/vlaquantbench/models/pi0_lerobot.py
+@@ -65,6 +65,7 @@ class _LeRobotPiAdapter(VLAAdapter):
+         self.preprocessor = None
+         self.postprocessor = None
+         self._episode_seed = seed
++        self._next_episode_seed: int | None = None
+ 
+     # ------------------------------------------------------------------ #
+     def load(self) -> None:
+@@ -132,9 +133,23 @@ class _LeRobotPiAdapter(VLAAdapter):
+         return None  # PiGemmaModel is not a *ForCausalLM; LLM PTQ methods are evaluated on OpenVLA
+ 
+     # ------------------------------------------------------------------ #
++    def set_episode_seed(self, seed: int) -> None:
++        """Seed the next ``reset`` with the runner's logged episode seed.
++
++        ``BenchmarkRunner.run`` calls this before every episode, so the flow-matching
++        noise of an episode depends only on (run seed, task, episode) - not on how many
++        episodes ran earlier in the process. Without it a resumed run gives the
++        remaining episodes different noise from an uninterrupted one, which breaks
++        matched-episode pairing across precision settings.
++        """
++        self._next_episode_seed = int(seed)
++
+     def reset(self, task: TaskSpec) -> None:
+         self.policy.reset()
+-        self._episode_seed = (self._episode_seed * 7919 + 1) % (2**31 - 1)
++        if self._next_episode_seed is not None:
++            self._episode_seed, self._next_episode_seed = self._next_episode_seed, None
++        else:  # upstream chain, kept for callers that bypass BenchmarkRunner.run (e.g. replay recording)
++            self._episode_seed = (self._episode_seed * 7919 + 1) % (2**31 - 1)
+         torch.manual_seed(self._episode_seed)
+         np.random.seed(self._episode_seed % (2**32 - 1))
+ 
+-- 
+2.43.0
+

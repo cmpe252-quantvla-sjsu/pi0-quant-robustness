@@ -1,0 +1,46 @@
+# QRP manifest for the core study (E2-E4). DRAFT until the design freeze.
+# Paths are relative to the repo root (run from there with --base-dir .):
+#   python scripts/qrp_bootstrap.py configs/qrp/study_manifest.yaml --base-dir . --out-md analysis/qrp.md
+# File layout follows results/README.md: results/<exp>/<condition>/<exp>-<setting>-<suite>.jsonl
+# (setting before suite, so "E2-W4-*" cannot also match "E2-VE-W4-*")
+# Only our own core runs go here: never pilot (E0/E1) files, never VLAQuantBench's released logs.
+# Record requirements for shifted episodes are in docs/JSONL_SCHEMA.md.
+
+baseline: BF16
+primary: VE-W4              # H1 is tested on this setting's pooled visual QRP
+secondary_setting: W4       # H2
+planned_visual_shifts: [lighting, background, layout]   # pooled QRP is flagged "reduced set" if one is dropped
+bootstrap_within: resample  # TBD at design freeze: resample (proposal 7.1 as written) or fixed (tasks only)
+
+conditions:
+  clean:      {kind: clean}
+  lighting:   {kind: visual}
+  background: {kind: visual}
+  layout:     {kind: visual}
+  language:   {kind: language}
+
+cells:
+  clean:
+    BF16:  results/E2/clean/E2-BF16-*.jsonl
+    VE-W4: results/E2/clean/E2-VE-W4-*.jsonl
+    W4:    results/E2/clean/E2-W4-*.jsonl
+    W8:    results/E2/clean/E2-W8-*.jsonl
+  lighting:
+    BF16:  results/E3/lighting/E3-BF16-*.jsonl
+    VE-W4: results/E3/lighting/E3-VE-W4-*.jsonl
+    W4:    results/E3/lighting/E3-W4-*.jsonl
+    W8:    results/E3/lighting/E3-W8-*.jsonl     # 100-episode subset, compared on its matched episodes
+  background:
+    BF16:  results/E3/background/E3-BF16-*.jsonl
+    VE-W4: results/E3/background/E3-VE-W4-*.jsonl
+    W4:    results/E3/background/E3-W4-*.jsonl
+    W8:    results/E3/background/E3-W8-*.jsonl
+  layout:
+    BF16:  results/E3/layout/E3-BF16-*.jsonl
+    VE-W4: results/E3/layout/E3-VE-W4-*.jsonl
+    W4:    results/E3/layout/E3-W4-*.jsonl
+    W8:    results/E3/layout/E3-W8-*.jsonl
+  language:
+    BF16:  results/E4/language/E4-BF16-*.jsonl
+    VE-W4: results/E4/language/E4-VE-W4-*.jsonl
+    W4:    results/E4/language/E4-W4-*.jsonl
