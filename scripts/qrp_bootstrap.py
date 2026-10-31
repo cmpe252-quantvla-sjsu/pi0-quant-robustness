@@ -17,12 +17,19 @@ replicates). Each replicate
      ``variant_id``, all episodes of one variant - so BF16 and Q outcomes always move
      together. The clean gap is computed once per replicate and reused for every shift.
 
-Step 2 is what Section 7.1 specifies (manifest ``bootstrap_within: resample``, the
-default). A coverage simulation at the proposal's design size found that resampling at
-both stages counts within-task noise twice (99% coverage for a nominal 95% interval,
-SE ~35% too large). ``bootstrap_within: fixed`` resamples tasks only and keeps each
-drawn task's episodes as observed (92-94% coverage with 30 tasks). Which one is
-primary is a design-freeze decision; the choice is recorded in the output.
+Step 2 is what Section 7.1 specifies (``bootstrap_within: resample``). A coverage
+simulation at the proposal's design size found that resampling at both stages counts
+within-task noise twice (99% coverage for a nominal 95% interval, SE ~35% too large).
+``bootstrap_within: fixed`` resamples tasks only and keeps each drawn task's episodes as
+observed (92-94% coverage with 30 tasks), as in Field & Welsh (2007). **Team decision
+(Oct 30, before any core data): ``fixed`` is primary** and the default; ``resample`` is
+reported as a sensitivity analysis (manifest ``sensitivity_within: resample``). The
+choice is recorded in the output.
+
+Provenance: all cells must share checkpoint, hostname, GPU, VLAQuantBench commit, run
+seed and episodes per task (the one-machine, one-environment rule). A mismatch stops the
+analysis unless the manifest sets ``allow_mixed_provenance: true`` (or the CLI flag), in
+which case it is reported as a warning.
 
 This extends ``clustered_ci.py``, whose within-task resampling draws the two cells'
 episodes independently; here the within-task draw is paired.
@@ -51,6 +58,8 @@ import yaml
 from vlaquantbench.stats import wilson_ci  # noqa: E402
 
 KINDS = ("clean", "visual", "language")
+#: Header fields that must agree across every cell of one analysis (one machine, one environment)
+PROVENANCE = ("hostname", "gpu", "vqb_commit", "seed", "episodes_per_task")
 
 
 # --------------------------------------------------------------------------- #
@@ -94,7 +103,7 @@ def load_cell(patterns, base_dir: Path):
         for line in open(p):
             d = json.loads(line)
             if d.get("kind") == "header":
-                headers.append({"path": p, **{k: d.get(k) for k in ("checkpoint", "suite", "preset", "scope", "seed")}})
+                headers.append({"path": p, **{k: d.get(k) for k in ("checkpoint", "suite", "preset", "scope") + PROVENANCE}})
                 continue
             if d.get("kind") != "episode":
                 continue
@@ -243,7 +252,7 @@ def holm(tests: list[tuple[str, float]], alpha: float = 0.05) -> dict:
 # Main analysis
 # --------------------------------------------------------------------------- #
 def analyse(manifest: dict, base_dir: Path, B: int, seed: int, threshold: float, log=print,
-            within: str | None = None) -> dict:
+            within: str | None = None, allow_mixed_provenance: bool | None = None) -> dict:
     baseline = manifest.get("baseline", "BF16")
     primary = manifest.get("primary", "VE-W4")
     conditions = manifest["conditions"]
@@ -257,7 +266,7 @@ def analyse(manifest: dict, base_dir: Path, B: int, seed: int, threshold: float,
     visual = [c for c, s in conditions.items() if s["kind"] == "visual"]
     language = [c for c, s in conditions.items() if s["kind"] == "language"]
     planned_visual = manifest.get("planned_visual_shifts", visual)
-    within = within or manifest.get("bootstrap_within", "resample")
+    within = within or manifest.get("bootstrap_within", "fixed")
     if within not in ("resample", "fixed"):
         raise SystemExit(f"bootstrap_within must be 'resample' or 'fixed', got {within!r}")
 
@@ -278,6 +287,20 @@ def analyse(manifest: dict, base_dir: Path, B: int, seed: int, threshold: float,
     ckpts = {h["checkpoint"] for h in headers}
     if len(ckpts) > 1:
         raise SystemExit(f"cells come from different checkpoints: {sorted(map(str, ckpts))}")
+    if allow_mixed_provenance is None:
+        allow_mixed_provenance = bool(manifest.get("allow_mixed_provenance", False))
+    provenance_issues = []
+    for key in PROVENANCE:
+        seen = defaultdict(list)
+        for h in headers:
+            seen[str(h.get(key))].append(f"{h['condition']}/{h['setting']}")
+        if len(seen) > 1:
+            detail = "; ".join(f"{v}: {', '.join(sorted(set(c)))}" for v, c in sorted(seen.items()))
+            provenance_issues.append(f"{key} differs across cells ({detail})")
+    if provenance_issues and not allow_mixed_provenance:
+        raise SystemExit("cells were not produced under identical conditions (one-machine rule):\n  "
+                         + "\n  ".join(provenance_issues)
+                         + "\nSet allow_mixed_provenance: true in the manifest only for non-core checks.")
 
     # tasks: the clean baseline defines the task set; shifted conditions must use the same IDs
     clean_ref = cells[(clean, baseline)]
@@ -317,7 +340,7 @@ def analyse(manifest: dict, base_dir: Path, B: int, seed: int, threshold: float,
                          "baseline": baseline, "primary": primary,
                          "clean": clean, "visual": visual, "language": language,
                          "planned_visual_shifts": planned_visual},
-              "headers": headers, "warnings": warnings, "descriptive": [], "gaps": {}, "qrp": {}, "tests": {}}
+              "headers": headers, "warnings": warnings + provenance_issues, "descriptive": [], "gaps": {}, "qrp": {}, "tests": {}}
 
     # descriptive: SR + Wilson, steps of successful episodes
     for (cond, setting), eps in sorted(cells.items()):
@@ -408,6 +431,17 @@ def to_markdown(r: dict) -> str:
         h = r["tests"]["H1"]
         L += ["", "## Primary hypothesis (H1)", "",
               f"Pooled visual QRP for {h['setting']}: **{fmt(h)}** points", "", f"Decision: **{h['decision']}**"]
+    if r.get("sensitivity"):
+        sv = r["sensitivity"]
+        sscheme = "tasks, then units within task" if sv["bootstrap_within"] == "resample" else "tasks only"
+        L += ["", f"## Sensitivity analysis (resampling: {sscheme})", "",
+              "Same point estimates; only the bootstrap interval changes.", "",
+              "| setting | pooled visual QRP [95% CI] |", "|---|---|"]
+        for setting, out in sv["qrp"].items():
+            if "pooled_visual" in out:
+                L.append(f"| {setting} | {fmt(out['pooled_visual'])} |")
+        if sv.get("H1"):
+            L += ["", f"H1 under this scheme: **{sv['H1']['decision']}**"]
     if "holm" in r["tests"]:
         L += ["", f"## Secondary tests (Holm, m = {r['tests']['holm']['m']}, exploratory)", "",
               "| test | Wald p | Holm threshold | reject |", "|---|---|---|---|"]
@@ -418,12 +452,14 @@ def to_markdown(r: dict) -> str:
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    ap.add_argument("manifest", help="YAML manifest listing the cells (see configs/qrp_manifest.example.yaml)")
+    ap.add_argument("manifest", help="YAML manifest listing the cells (see configs/qrp/)")
     ap.add_argument("--B", type=int, default=10_000, help="bootstrap replicates (proposal: 10,000)")
     ap.add_argument("--seed", type=int, default=0, help="bootstrap RNG seed")
     ap.add_argument("--threshold", type=float, default=5.0, help="practical threshold in pp (proposal: 5)")
     ap.add_argument("--within", choices=("resample", "fixed"), default=None,
-                    help="override the manifest's bootstrap_within (default there: resample)")
+                    help="override the manifest's bootstrap_within (default: fixed)")
+    ap.add_argument("--allow-mixed-provenance", action="store_true",
+                    help="warn instead of stopping when cells differ in host, GPU, commit, seed or episodes per task")
     ap.add_argument("--base-dir", default=None, help="paths in the manifest are relative to this (default: manifest dir)")
     ap.add_argument("--out-json", default=None)
     ap.add_argument("--out-md", default=None)
@@ -431,7 +467,12 @@ def main(argv=None):
     mpath = Path(a.manifest)
     manifest = yaml.safe_load(mpath.read_text())
     base = Path(a.base_dir) if a.base_dir else mpath.resolve().parent
-    r = analyse(manifest, base, a.B, a.seed, a.threshold, within=a.within)
+    allow = True if a.allow_mixed_provenance else None
+    r = analyse(manifest, base, a.B, a.seed, a.threshold, within=a.within, allow_mixed_provenance=allow)
+    sens = manifest.get("sensitivity_within")
+    if sens and sens != r["config"]["bootstrap_within"]:
+        r2 = analyse(manifest, base, a.B, a.seed, a.threshold, within=sens, allow_mixed_provenance=allow)
+        r["sensitivity"] = {"bootstrap_within": sens, "qrp": r2["qrp"], "H1": r2["tests"].get("H1")}
     md = to_markdown(r)
     print(md)
     if a.out_json:

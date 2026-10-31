@@ -112,3 +112,25 @@ def test_mcnemar_matches_scipy(n10, n01):
     stats = pytest.importorskip("scipy.stats")
     want = 1.0 if n10 + n01 == 0 else stats.binomtest(min(n10, n01), n10 + n01, 0.5).pvalue
     assert pc.mcnemar_exact(n10, n01) == pytest.approx(want, rel=1e-9)
+
+
+@needs_logs
+def test_statistical_mode_allows_a_longer_reference_and_always_prints_a_verdict(tmp_path):
+    """E0a ran 50 episodes per task; comparing its first 20 with a 20-per-task run is a
+    legitimate statistical check, and the script must still end with PASS or FAIL."""
+    src = (R / "rtn-BASELINE-e2e.jsonl").read_text().splitlines()
+    header = json.loads(src[0])
+    header["episodes_per_task"] = 50
+    longer = tmp_path / "longer.jsonl"
+    longer.write_text("\n".join([json.dumps(header)] + src[1:]) + "\n")
+    ok, lines = pc.compare_rollouts(str(longer), str(R / "rtn-W8-e2e.jsonl"), "statistical", B=200)
+    assert ok and lines[-1].startswith("PASS")
+    assert any("episodes_per_task differs" in l and "note" in l for l in lines)
+    ok, lines = pc.compare_rollouts(str(longer), str(R / "rtn-W8-e2e.jsonl"), "exact", B=200)
+    assert not ok and lines[-1].startswith(("FAIL", "  "))
+    # a header problem in statistical mode still ends with an explicit FAIL line
+    header["checkpoint"] = "other"
+    other = tmp_path / "other.jsonl"
+    other.write_text("\n".join([json.dumps(header)] + src[1:]) + "\n")
+    ok, lines = pc.compare_rollouts(str(other), str(R / "rtn-W8-e2e.jsonl"), "statistical", B=200)
+    assert not ok and lines[-1].startswith("FAIL")

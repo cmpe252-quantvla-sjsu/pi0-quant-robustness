@@ -10,7 +10,10 @@ baseline: BF16
 primary: VE-W4              # H1 is tested on this setting's pooled visual QRP
 secondary_setting: W4       # H2
 planned_visual_shifts: [lighting, background, layout]   # pooled QRP is flagged "reduced set" if one is dropped
-bootstrap_within: resample  # TBD at design freeze: resample (proposal 7.1 as written) or fixed (tasks only)
+bootstrap_within: fixed         # primary: tasks only (decided Oct 30, see configs/frozen_design.yaml)
+sensitivity_within: resample    # also reported: proposal 7.1 as written
+# Every cell must share hostname, GPU, VLAQuantBench commit, seed and episodes per task;
+# the script stops otherwise (one-machine rule). Never set allow_mixed_provenance here.
 
 conditions:
   clean:      {kind: clean}

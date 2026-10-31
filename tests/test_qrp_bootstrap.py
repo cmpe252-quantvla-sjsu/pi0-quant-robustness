@@ -81,10 +81,14 @@ def test_point_estimates_match_hand_computation(tmp_path):
 def test_identical_conditions_give_exactly_zero_qrp(tmp_path):
     ref = grid(fn=lambda s, t, e: (e + t) % 3 != 0)
     qq = grid(fn=lambda s, t, e: (e + t) % 3 == 1)
-    r = run(tmp_path, {"clean": {"BF16": ref, "VE-W4": qq}, "light": {"BF16": ref, "VE-W4": qq}}, COND)
-    s = r["qrp"]["VE-W4"]["pooled_visual"]
+    cells = {"clean": {"BF16": ref, "VE-W4": qq}, "light": {"BF16": ref, "VE-W4": qq}}
+    # resample: the point estimate is 0, the interval has width (within-task draws differ)
+    s = run(tmp_path, cells, COND, bootstrap_within="resample")["qrp"]["VE-W4"]["pooled_visual"]
     assert s["estimate"] == 0.0
-    assert s["ci_low"] < 0 < s["ci_high"]  # symmetric-ish uncertainty around 0
+    assert s["ci_low"] < 0 < s["ci_high"]
+    # fixed (default): identical data in both conditions -> every replicate is exactly 0
+    s = run(tmp_path, cells, COND)["qrp"]["VE-W4"]["pooled_visual"]
+    assert s["estimate"] == 0.0 and s["ci_low"] == s["ci_high"] == 0.0
 
 
 def test_record_order_does_not_change_anything(tmp_path):
@@ -160,8 +164,10 @@ def test_variant_clusters_are_resampled_whole(tmp_path):
     clean = grid(tasks=5, eps=10, fn=lambda s, t, e: 1)
     a = tmp_path / "a"; a.mkdir()
     b = tmp_path / "b"; b.mkdir()
-    r_var = run(a, {"clean": {"BF16": clean, "VE-W4": clean}, "light": {"BF16": ref_var, "VE-W4": q_var}}, COND)
-    r_plain = run(b, {"clean": {"BF16": clean, "VE-W4": clean}, "light": {"BF16": ref, "VE-W4": q_plain}}, COND)
+    r_var = run(a, {"clean": {"BF16": clean, "VE-W4": clean}, "light": {"BF16": ref_var, "VE-W4": q_var}}, COND,
+                bootstrap_within="resample")
+    r_plain = run(b, {"clean": {"BF16": clean, "VE-W4": clean}, "light": {"BF16": ref, "VE-W4": q_plain}}, COND,
+                  bootstrap_within="resample")
     assert r_var["gaps"]["light/VE-W4"]["estimate"] == r_plain["gaps"]["light/VE-W4"]["estimate"]
     assert r_var["gaps"]["light/VE-W4"]["se"] > 1.5 * r_plain["gaps"]["light/VE-W4"]["se"]
 
@@ -227,11 +233,12 @@ def test_released_logs_reproduce_proposal_numbers():
     r = q.analyse(
         {"conditions": {"clean": {"kind": "clean"}, "same": {"kind": "visual"}},
          "cells": {c: {"BF16": "results/libero/libero_spatial/pi0/rtn-BASELINE-e2e.jsonl",
-                       "VE-W4": "results/libero/libero_spatial/pi0/rtn-W4-ve.jsonl"} for c in ("clean", "same")}},
+                       "VE-W4": "results/libero/libero_spatial/pi0/rtn-W4-ve.jsonl"} for c in ("clean", "same")},
+         "bootstrap_within": "resample"},
         root, B=10_000, seed=0, threshold=5.0)
     g = r["gaps"]["clean/VE-W4"]
     assert g["estimate"] == pytest.approx(1.5)            # 78.0 - 76.5
-    assert 2.0 < g["se"] < 2.6                             # proposal 7.4: "about 2.3"
+    assert 2.0 < g["se"] < 2.6                             # proposal 7.4 ("about 2.3") used this scheme
     assert r["qrp"]["VE-W4"]["same"]["estimate"] == 0.0
 
 
@@ -241,8 +248,8 @@ def test_tasks_only_scheme_is_narrower_and_recorded():
     m = {"conditions": {"clean": {"kind": "clean"}, "same": {"kind": "visual"}},
          "cells": {c: {"BF16": "results/libero/libero_spatial/pi0/rtn-BASELINE-e2e.jsonl",
                        "VE-W4": "results/libero/libero_spatial/pi0/rtn-W4-ve.jsonl"} for c in ("clean", "same")}}
-    two = q.analyse(m, root, B=5000, seed=0, threshold=5.0)
-    one = q.analyse({**m, "bootstrap_within": "fixed"}, root, B=5000, seed=0, threshold=5.0)
+    two = q.analyse({**m, "bootstrap_within": "resample"}, root, B=5000, seed=0, threshold=5.0)
+    one = q.analyse(m, root, B=5000, seed=0, threshold=5.0)   # default is fixed (team decision Oct 30)
     assert two["config"]["bootstrap_within"] == "resample" and one["config"]["bootstrap_within"] == "fixed"
     assert one["gaps"]["clean/VE-W4"]["estimate"] == two["gaps"]["clean/VE-W4"]["estimate"]
     assert one["gaps"]["clean/VE-W4"]["se"] < 0.8 * two["gaps"]["clean/VE-W4"]["se"]
@@ -251,3 +258,41 @@ def test_tasks_only_scheme_is_narrower_and_recorded():
     assert s["ci_low"] == s["ci_high"] == 0.0
     with pytest.raises(SystemExit, match="bootstrap_within"):
         q.analyse({**m, "bootstrap_within": "both"}, root, B=100, seed=0, threshold=5.0)
+
+
+def test_provenance_mismatch_stops_the_analysis_unless_allowed(tmp_path):
+    """One-machine rule: cells from another host / GPU / commit / seed / episodes_per_task are refused."""
+    ref = grid()
+    manifest = {"conditions": COND, "cells": {
+        "clean": {"BF16": write_cell(tmp_path / "c1.jsonl", ref), "VE-W4": write_cell(tmp_path / "c2.jsonl", ref)},
+        "light": {"BF16": write_cell(tmp_path / "l1.jsonl", ref), "VE-W4": write_cell(tmp_path / "l2.jsonl", ref)}}}
+    assert q.analyse(manifest, tmp_path, B=100, seed=0, threshold=5.0)["warnings"] == []
+    for key, value in (("hostname", "other-host"), ("gpu", "RTX 5080"), ("vqb_commit", "4a2cb7c"),
+                       ("seed", 1), ("episodes_per_task", 50)):
+        path = tmp_path / "l2.jsonl"
+        lines = path.read_text().splitlines()
+        original = lines[0]
+        h = json.loads(original); h[key] = value
+        path.write_text("\n".join([json.dumps(h)] + lines[1:]) + "\n")
+        with pytest.raises(SystemExit, match=key):
+            q.analyse(manifest, tmp_path, B=100, seed=0, threshold=5.0)
+        r = q.analyse({**manifest, "allow_mixed_provenance": True}, tmp_path, B=100, seed=0, threshold=5.0)
+        assert any(key in w and "light/VE-W4" in w for w in r["warnings"])
+        path.write_text("\n".join([original] + lines[1:]) + "\n")
+
+
+def test_sensitivity_section_reports_the_other_scheme(tmp_path, capsys):
+    ref = grid(eps=6, fn=lambda s, t, e: (e + t) % 4 != 0)
+    qq = grid(eps=6, fn=lambda s, t, e: (e * 3 + t) % 5 != 0)
+    cells = {}
+    for cond, (a, b) in {"clean": (ref, ref), "light": (ref, qq)}.items():
+        cells[cond] = {"BF16": write_cell(tmp_path / f"{cond}-a.jsonl", a), "VE-W4": write_cell(tmp_path / f"{cond}-b.jsonl", b)}
+    m = tmp_path / "m.yaml"
+    m.write_text(json.dumps({"conditions": COND, "cells": cells, "sensitivity_within": "resample"}))
+    out = tmp_path / "r.json"
+    q.main([str(m), "--B", "500", "--out-json", str(out)])
+    md = capsys.readouterr().out
+    assert "resampling: tasks only" in md and "## Sensitivity analysis (resampling: tasks, then units within task)" in md
+    r = json.loads(out.read_text())
+    assert r["config"]["bootstrap_within"] == "fixed" and r["sensitivity"]["bootstrap_within"] == "resample"
+    assert r["sensitivity"]["qrp"]["VE-W4"]["pooled_visual"]["estimate"] == r["qrp"]["VE-W4"]["pooled_visual"]["estimate"]

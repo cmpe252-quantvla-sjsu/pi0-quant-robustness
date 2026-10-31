@@ -1,5 +1,6 @@
 # Sanity check of the QRP script on VLAQuantBench's released pi0 logs (clean LIBERO-Spatial).
-# "fake_shift" reuses the clean files, so its QRP must come out exactly 0.
+# "fake_shift" reuses the clean files, so its QRP point estimate must be exactly 0. Its interval
+# is exactly [0, 0] only with bootstrap_within: fixed (the default); with resample it has width.
 # Paths are relative to the VLAQuantBench clone, so pass it with --base-dir:
 #   python scripts/qrp_bootstrap.py configs/qrp/released_logs_check.yaml --base-dir ../VLAQuantBench
 baseline: BF16

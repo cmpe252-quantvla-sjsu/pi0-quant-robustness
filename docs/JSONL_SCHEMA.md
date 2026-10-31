@@ -31,7 +31,7 @@ and must be confirmed against `quantvla/libero_plus.py` before E1.
 | Preset / scope | Expected |
 |---|---|
 | `BASELINE` | 0 layers everywhere |
-| `NOOP` / `ve` and `W4` / `ve` | `ve`: **162 layers, 411.1M params** (from `vqb inspect` on our VM), `mean_rel_mse` 0 for NOOP |
+| `NOOP` / `ve` and `W4` / `ve` | `ve`: **162 layers, 411.1M params** (from `vqb inspect` on our VM; confirmed in the E0b NOOP header), `mean_rel_mse` 0 for NOOP |
 | `W4` / `e2e`, `W8` / `e2e` | all four components nonzero |
 
 ## 2. Episode lines (confirmed from E0a)

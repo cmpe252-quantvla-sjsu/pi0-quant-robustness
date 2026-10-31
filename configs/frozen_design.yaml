@@ -7,7 +7,7 @@ frozen_on: null          # date of the design-freeze tag
 
 model:
   checkpoint: lerobot/pi0_libero_finetuned_v044
-  baseline_dtype: bfloat16
+  baseline_dtype: bfloat16           # released precision; the vision encoder is float32 (E0b weight check)
   n_action_steps: 10                 # replan every 10 actions (implementation note 10)
   camera_size: 360
   max_steps: {libero_spatial: 280, libero_object: 280, libero_goal: 300}
@@ -15,6 +15,7 @@ model:
 software:
   vlaquantbench_commit: 4a2cb7c
   vlaquantbench_patches: [0001-noop, 0002-episode-seed, 0003-runs-dir]   # patches/vlaquantbench/
+  vlaquantbench_patched: qvla-patches @ c497a0d   # applied on the VM Oct 30
   liberoplus_commit: 4976dc3
   lerobot: 0.5.1
   torch: 2.10.0
@@ -59,7 +60,12 @@ analysis:
   primary: pooled visual QRP for VE-W4 (proposal Eq. 5)
   bootstrap_replicates: 10000
   bootstrap_seed: 0
-  bootstrap_within: TBD              # resample (proposal 7.1 as written) or fixed (tasks only)
+  bootstrap_within: fixed            # tasks only (Field & Welsh 2007); decided Oct 30, before any core data
+  bootstrap_sensitivity: resample    # proposal 7.1 as written (tasks, then pairs); reported as sensitivity
+  departure_from_proposal: >-
+    Proposal 7.1 specifies resampling tasks and then matched pairs within tasks. A coverage
+    simulation at our design size gave 99% coverage for that nominal 95% interval (within-task
+    noise counted twice) vs. 92-94% for tasks-only, so tasks-only is primary.
   interval: 95% percentile
   practical_threshold_pp: 5
   h1_decision_rule: README.md "Decision rule for H1"
@@ -67,7 +73,9 @@ analysis:
   multiple_comparisons: Holm, alpha 0.05, m = 5
   sensitivity: logistic mixed-effects model (lme4), proposal Eq. 7
 
+decisions:                           # made before any core data
+  - "2026-10-30: keep the episode-seed patch (0002) for all core runs (E0b: 67/200 flips with unmatched noise vs. 1-2 matched)"
+  - "2026-10-30: bootstrap_within fixed primary, resample as sensitivity"
+
 pending_team_decisions:
-  - Keep the episode-seed patch (0002) for all core runs?
-  - bootstrap_within: resample or fixed?
   - Core results file layout (results/README.md)

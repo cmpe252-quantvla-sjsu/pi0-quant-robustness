@@ -96,8 +96,12 @@ def compare_rollouts(ref_path: str, cell_path: str, mode: str = "exact", B: int 
         a = {str(h.get(key)) for h in h_ref}
         b = {str(h.get(key)) for h in h_cell}
         if a != b:
-            ok = False
-            L.append(f"  FAIL: {key} differs: ref {sorted(a)} vs cell {sorted(b)}")
+            if key == "episodes_per_task" and mode == "statistical":
+                # e.g. a 50-per-task run compared on its first 20: only matched episodes are used
+                L.append(f"  note: {key} differs: ref {sorted(a)} vs cell {sorted(b)} (only matched episodes are compared)")
+            else:
+                ok = False
+                L.append(f"  FAIL: {key} differs: ref {sorted(a)} vs cell {sorted(b)}")
     for key in HOST_FIELDS:
         a = {str(h.get(key)) for h in h_ref}
         b = {str(h.get(key)) for h in h_cell}
@@ -175,6 +179,8 @@ def compare_rollouts(ref_path: str, cell_path: str, mode: str = "exact", B: int 
             L.append(f"CHECK: discordant pairs are unbalanced (McNemar p = {p_mc:.3f})")
         if ok:
             L.append("PASS: success rates agree (cell inside the reference Wilson interval; McNemar p >= 0.05)")
+        else:
+            L.append("FAIL: see the FAIL / CHECK lines above")
     return ok, L
 
 

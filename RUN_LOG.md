@@ -34,7 +34,26 @@ down here before trying to explain it.
   - Logged in to Hugging Face for the PaliGemma tokenizer (shared token).
 - `vqb inspect` matches VLAQuantBench's published layer counts: VE 162 layers / 411.1M params.
 - Lost a morning to L4 stockouts in the zone. If the VM won't start, wait an hour and retry.
-- *Smitha: add exact package names, machine type and disk size.*
+- Machine type `g2-standard-8`; image `common-cu129-ubuntu-2204-nvidia-580` (Google Deep
+  Learning VM, Ubuntu 22.04); boot disk ~145 GB (from the start-up error and login banner, Oct 30).
+- *Smitha: add the exact package names.*
+
+### 2026-10-30 · Amina's login and VLAQuantBench patches (Amina)
+- Added to `~/.bashrc` (same values as Smitha's, confirmed by her): `umask 002`,
+  `HF_HOME=/opt/qvla/hf_cache`, `LIBERO_CONFIG_PATH=/opt/qvla/libero_config`,
+  `MUJOCO_GL=egl`, `PYOPENGL_PLATFORM=egl`.
+- `git config --global --add safe.directory /opt/qvla/third_party/VLAQuantBench` (the clone is
+  owned by Smitha's login; git refuses another user's repo without this).
+- **Hugging Face token was owner-only** (`-rw-------`), so other logins couldn't load π0
+  (`PermissionError` on `/opt/qvla/hf_cache/token`). Fixed with
+  `sudo chmod g+r /opt/qvla/hf_cache/token /opt/qvla/hf_cache/stored_tokens` (now `-rw-r-----`:
+  group read-only). Running `hf auth login` again resets it to owner-only; redo the chmod then.
+- Clone was `4a2cb7c` (detached), only `scripts/env/setup_lerobot.sh` modified. Created branch
+  `qvla-patches` and applied patches 0001–0003 with `git am` → **`qvla-patches` @ `c497a0d`**.
+  This is the VLAQuantBench version from E0b on. `vqb presets` lists `NOOP`.
+- The team repo is not cloned on the VM. Patches and scripts were uploaded to `~` with the
+  SSH-in-browser UPLOAD FILE button; results downloaded with DOWNLOAD FILE.
+- L4 stockout again 11:50–~15:00; the VM started on a later try.
 
 ---
 
@@ -51,17 +70,72 @@ down here before trying to explain it.
 - Checks: header `episodes_per_task: 50`, `quant_report` 0 layers everywhere, 280 steps, 360 px.
   Mean wall time 16.5 s per episode (median 13.2 s), peak VRAM 8.4 GB.
 - Statistical comparison with VLAQuantBench's published BF16 file
-  (`parity_check.py rollouts --mode statistical`): **PASS**. Gap +2.0 points, task-clustered
+  (`parity_check.py rollouts --mode statistical`): **PASS** with the fixed script (Oct 30). The
+  first version printed FAIL here, only because of the expected 50-vs-20 `episodes_per_task`
+  difference, and printed no verdict line; "PASS" was first written from the numbers by hand.
+  Gap +2.0 points, task-clustered
   95% CI [−3.5, +7.5], McNemar p = 0.665. But only 152/200 matched episodes have the same
   outcome (26 vs. 22 discordant). Different machine and different noise per episode, so
   episodes can't be compared one by one across runs like these.
 - Deviations / notes: ran 500 episodes because `--episodes` was omitted. `--out` needs a
   file name, not a folder.
 
-### E0b · NOOP parity check, environment A (planned)
-- Who: Amina
-- Plan (see `docs/EXPERIMENT_PLAN.md`, E0): check the clone is `4a2cb7c`, apply patches
-  0001–0003; weight check; E0b-1 BF16 (patched) → `E0b-BF16-patched-spatial.jsonl` and E0b-2
-  NOOP (VE scope) → `E0b-NOOP-spatial.jsonl`, clean Spatial, `--episodes 20`; exact rollout
-  comparison of the two; if there are mismatches, a second BF16 run to measure the chance
-  level; statistical comparison of E0a vs. E0b-1. E0a stays the "stack works" result.
+### E0b · NOOP parity check, environment A: **PASS**
+- Date / who: 2026-10-30, ~15:40–18:55 PT · Amina
+- Machine / env / commit: qvla-l4 (NVIDIA L4) · vqb_a · VLAQuantBench `qvla-patches` @ `c497a0d`
+- VM output folder: `/opt/qvla/runs/E0b/` (separate from E0, so `vqb summarize` can't merge
+  these BASELINE runs with E0a). Repo copies in `results/E0/`.
+
+**Weight check**
+- Command: `python ~/parity_check.py weights --model pi0 --preset NOOP --scope ve`
+- Result: **PASS**. `ve: 162 quantizable layers`, `162 layers touched`, `parameters changed: 0 of 778`.
+- Note: all 162 VE layers are **float32** in this checkpoint (`weight dtypes {'float32': 162}`),
+  so VE-W4 rounded weights are stored back in float32, not BF16. Fix the wording in the report
+  (proposal 4.2 says the rounded weights "are stored as BF16").
+
+**Runs** (clean Spatial, `--episodes 20`, 200 episodes each)
+
+| Run | Command (all `vqb run --model pi0 --benchmark libero --suite libero_spatial --episodes 20`) | File | Success |
+|---|---|---|---|
+| E0b-1 | `--preset BASELINE --scope e2e` | `E0b-BF16-patched-spatial.jsonl` | 75.5% (151/200), Wilson [69.1, 80.9] |
+| E0b-2 | `--preset NOOP --scope ve` (header: `ve` 162 layers) | `E0b-NOOP-spatial.jsonl` | 75.5% (151/200) |
+| E0b-3 | `--preset BASELINE --scope e2e` (chance-level rerun) | `E0b-BF16-patched-rerun-spatial.jsonl` | 76.0% (152/200) |
+
+Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
+
+**Comparisons** (`parity_check.py rollouts`)
+
+| Comparison | Same success and steps | Same success | Flips (n10 / n01) | Paired gap, 95% CI |
+|---|---|---|---|---|
+| E0b-1 BF16 vs E0b-2 NOOP (exact) | 191/200 | 198/200 | 1 / 1 | +0.0 [−1.5, +1.5] |
+| E0b-1 BF16 vs E0b-3 BF16 rerun (exact) | 192/200 | 199/200 | 0 / 1 | −0.5 [−1.5, +0.0] |
+| E0a vs E0b-1 (statistical) | 17/200 | 133/200 | 34 / 33 | +0.5 [−6.0, +6.5], McNemar p = 1.0; PASS with the fixed script |
+
+- **Conclusion: the NOOP preset does not change the model.** The weights are bit-identical, and
+  NOOP vs. BF16 differs no more than BF16 vs. itself. The exact check "fails" only because the
+  GPU is not bit-for-bit repeatable: with identical model and seeds, ~4% of episodes change
+  their step count and ~0.5–1% flip outcome. Several of the same episodes wobble in both
+  comparisons (task 0 ep 11, task 2 ep 1, task 4 ep 15, task 6 ep 12).
+- **Consequence:** exact episode-by-episode parity is not achievable on this machine; parity
+  checks (E1a) use the BF16-rerun mismatch count as the chance level, and analysis stays
+  statistical. Outcome flips from GPU noise alone (~1%) are a floor for discordance in the
+  E1 power update.
+- **The seed patch matters:** with different noise (E0a, unpatched, vs. E0b-1), 67/200 outcomes
+  flip although the success rates agree (76.0% vs. 75.5%); with matched noise only 1–2 flip.
+- Deviation: the statistical E0a comparison printed no verdict line (it treated the expected
+  50-vs-20 `episodes_per_task` difference as a failure). Fixed in `scripts/parity_check.py`.
+
+---
+
+## Decisions
+
+### 2026-10-30 · After E0b, before any core data (Amina and Smitha, PR review)
+- **Keep the episode-seed patch (0002) for all core runs.** E0b shows why: with unmatched
+  noise 67/200 outcomes flip between two BF16 runs, with matched noise 1–2.
+- **Bootstrap: tasks-only (`bootstrap_within: fixed`) is primary**, the two-stage scheme of
+  proposal §7.1 is reported as sensitivity. Based on the coverage simulation (99% vs. 92–94%
+  coverage for a nominal 95% interval). Recorded in `configs/frozen_design.yaml`.
+- **`LIBERO_CONFIG_PATH` per conda env** (`/opt/qvla/libero_config_a` for `vqb_a`, `_b` for
+  `vqb_b`) instead of `~/.bashrc`; migration steps in `docs/SETUP.md` §1, still to do on the VM.
+- `qrp_bootstrap.py` now refuses cells that differ in hostname, GPU, VLAQuantBench commit,
+  seed or episodes per task (one-machine rule at analysis time).

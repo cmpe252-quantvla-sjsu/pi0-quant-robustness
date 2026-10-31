@@ -59,5 +59,9 @@ the patched VLAQuantBench clone installed with `pip install -e`.
 
 ## 7. Use of AI tools
 
-The instructor allowed generative AI for the code. Whoever submits AI-assisted code is
-responsible for understanding it and for the review swap above.
+**Course policy:** TODO: quote the syllabus / instructor wording here.
+
+We use AI tools for code and for drafting repository docs (setup notes, run log,
+plans). Whoever submits AI-assisted code or docs is responsible for checking and
+understanding it, and AI-assisted code goes through the review swap above like any other.
+If the course policy asks for it, the final report says how AI tools were used.

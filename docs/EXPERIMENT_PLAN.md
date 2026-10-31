@@ -10,7 +10,7 @@ We are about a week behind the proposal's Table 4, but past the environment gate
 | Step | Owner | Target |
 |---|---|---|
 | E0a: BF16 reproduces the published baseline | Smitha | done Oct 29 |
-| E0b: no-op parity check | Amina | Oct 30 |
+| E0b: no-op parity check | Amina | **done Oct 30: PASS** |
 | Variant sampler + LIBERO-Plus runner | Smitha | ~Nov 3 |
 | Environment B + E1 pilot | Both | Nov 4–6 |
 | Design freeze (`configs/frozen_design.yaml`, tag `design-freeze`) | Both | ~Nov 7 |
@@ -26,9 +26,17 @@ squeezing the schedule (for example, drop W8 or one suite).
 ## Compute
 
 E0a measured **16.5 s per episode** on average (median 13.2 s) and 8.4 GB peak VRAM on the
-L4, more than the proposal's 12 s planning figure. At 16.5 s, the 6,300 core episodes take
-about 29 GPU-hours, plus pilots and reruns. E1 should check whether two episodes can run at
-once on the 23 GB card.
+L4, more than the proposal's 12 s planning figure (E0b: same speed). At 16.5 s:
+
+| Block | Episodes | GPU-hours |
+|---|---|---|
+| E1 pilot | ~1,150 | ~5.3 |
+| Core grid E2–E4 | 6,300 | ~28.9 |
+| **Total before reruns** | **~7,450** | **~34** |
+
+That is about the proposal's 35 GPU-hour budget *before* reruns, so reruns push us over it
+(E0 already used ~5 GPU-hours). The cloud credit covers this. E1 should check whether two
+episodes can run at once on the 23 GB card, which would roughly halve the wall-clock time.
 
 ## Commands: two things to always do
 
@@ -44,8 +52,14 @@ once on the 23 GB card.
 | Run | What | Episodes | Owner | Status |
 |---|---|---|---|---|
 | E0a | BF16, clean Spatial, unpatched VLAQuantBench | 500 (first 200 used) | Smitha | **done**: 76.0% (152/200) vs. 78.0% published, inside the 71.8–83.2% target |
-| E0b-1 | BF16, clean Spatial, **patched** VLAQuantBench (parity reference for E0b only) | 200 | Amina | todo |
-| E0b-2 | NOOP, VE scope, clean Spatial, patched | 200 | Amina | todo |
+| E0b-1 | BF16, clean Spatial, **patched** VLAQuantBench (parity reference for E0b only) | 200 | Amina | **done**: 75.5% |
+| E0b-2 | NOOP, VE scope, clean Spatial, patched | 200 | Amina | **done**: 75.5%; 191/200 identical to E0b-1 |
+| E0b-3 | BF16 rerun (chance level) | 200 | Amina | **done**: 76.0%; 192/200 identical to E0b-1 |
+
+**E0b result:** PASS. NOOP leaves every weight bit-identical and differs from BF16 no more
+than BF16 differs from itself. The GPU is not bit-for-bit repeatable (~4% of episodes change
+steps, ~0.5–1% flip outcome), so E1a's parity check needs a BF16 rerun as its chance level.
+Details: `RUN_LOG.md`.
 
 **Why E0b re-runs BF16:** episodes can only be compared one by one when they get the same
 flow-matching noise. E0a ran before the seed patch and with 50 episodes per task, so its
@@ -54,7 +68,8 @@ published BF16 run shows the same effect: the success rates agree, but 24% of ma
 episodes flip. E0b-1 is the reference for E0b's parity check only: the core runs happen
 in environment B, so their BF16 references are produced there (E1a, E2).
 
-**Steps (Amina, VM, inside tmux, from the team repo folder on the VM):**
+**Steps as planned** (as actually run: on the VM the scripts were in `~` and the output in
+`/opt/qvla/runs/E0b/`; see `RUN_LOG.md`):
 1. Add `export PYOPENGL_PLATFORM=egl` to `~/.bashrc`. Check the clone and apply the patches
    (`docs/SETUP.md`, section 4); note the patched commit in `RUN_LOG.md`.
 2. Check the NOOP preset touches the model correctly (seconds):
@@ -161,5 +176,11 @@ python scripts/qrp_bootstrap.py configs/qrp/study_manifest.yaml --base-dir . \
 ```
 Reports success rates with Wilson intervals, matched gaps with discordance counts, per-shift
 and pooled QRP with the paired task-clustered bootstrap (10,000 replicates), the H1 decision,
-and the Holm-corrected secondary tests. The bootstrap resampling scheme
-(`bootstrap_within`) is decided at the design freeze.
+and the Holm-corrected secondary tests.
+
+**Bootstrap scheme (decided Oct 30, before any core data):** tasks-only resampling
+(`bootstrap_within: fixed`, as in Field & Welsh 2007) is primary; the two-stage scheme
+written in proposal §7.1 (`resample`) is reported as a sensitivity analysis. Reason: a
+coverage simulation at our design size gave 99% coverage for the two-stage 95% interval
+(within-task noise counted twice) and 92–94% for tasks-only. The report documents this
+departure from §7.1.
