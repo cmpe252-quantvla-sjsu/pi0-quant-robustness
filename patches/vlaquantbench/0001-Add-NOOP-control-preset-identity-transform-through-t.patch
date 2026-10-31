@@ -1,0 +1,203 @@
+From 02cedf2faefa84d1a9874c55cd4ee3df1f8ccc1f Mon Sep 17 00:00:00 2001
+From: Amina Akhtar <aminaakhtar801@gmail.com>
+Date: Tue, 20 Oct 2026 12:37:43 -0700
+Subject: [PATCH 1/3] Add NOOP control preset (identity transform through the
+ weight-quantization path)
+
+---
+ configs/presets.yaml              |  2 +
+ tests/test_noop_preset.py         | 96 +++++++++++++++++++++++++++++++
+ vlaquantbench/cli.py              |  2 +-
+ vlaquantbench/quant/fake_quant.py |  7 ++-
+ vlaquantbench/quant/presets.py    | 12 ++++
+ 5 files changed, 116 insertions(+), 3 deletions(-)
+ create mode 100644 tests/test_noop_preset.py
+
+diff --git a/configs/presets.yaml b/configs/presets.yaml
+index 758abeb..ece2dbb 100644
+--- a/configs/presets.yaml
++++ b/configs/presets.yaml
+@@ -9,4 +9,6 @@ presets:
+   W4A4: {w_bits: 4, w_scheme: per-group-asym, group_size: 128, a_bits: 4, a_scheme: per-token-sym-dynamic}
+   W4A8: {w_bits: 4, w_scheme: per-group-asym, group_size: 128, a_bits: 8, a_scheme: per-token-sym-dynamic}
+   W8A8: {w_bits: 8, w_scheme: per-channel-sym, a_bits: 8, a_scheme: per-token-sym-dynamic}
++  # Control, not a precision: runs the weight-quantization path with an identity transform.
++  NOOP: {w_bits: 16, w_scheme: identity, a_bits: null}
+ paper_presets: [W3, W4, W8, W4A4, W4A8, W8A8]
+diff --git a/tests/test_noop_preset.py b/tests/test_noop_preset.py
+new file mode 100644
+index 0000000..58fe91a
+--- /dev/null
++++ b/tests/test_noop_preset.py
+@@ -0,0 +1,96 @@
++"""NOOP control preset: same code path as a real quantizer, bit-identical result.
++
++The proposal's E0/E1 parity check compares a NOOP cell against the BASELINE cell.
++For that comparison to mean anything, NOOP must (1) actually walk and rewrite the
++same layers as W4 for the same scope, and (2) leave every weight bit-identical.
++"""
++import pytest
++import torch
++from torch import nn
++
++from vlaquantbench import ComponentMap, parse_spec, quantize_scope
++from vlaquantbench.quant.apply import _QUANT_MARK_ATTR
++from vlaquantbench.quant.presets import BASELINE, NOOP, PRESETS
++
++
++class ToyVLA(nn.Module):
++    def __init__(self):
++        super().__init__()
++        self.vision_blocks = nn.Sequential(nn.Linear(8, 256), nn.GELU(), nn.Linear(256, 8))
++        self.projector = nn.Linear(8, 16)
++        self.layers = nn.Sequential(nn.Linear(16, 32), nn.SiLU(), nn.Linear(32, 16))
++        self.action_head = nn.Sequential(nn.Linear(16, 16), nn.ReLU(), nn.Linear(16, 7))
++
++    def forward(self, x):
++        return self.action_head(self.layers(self.projector(self.vision_blocks(x))))
++
++
++def cmap_of(m):
++    cm = ComponentMap()
++    cm.add("ve", "vision_blocks", m.vision_blocks)
++    cm.add("mp", "projector", m.projector)
++    cm.add("llm", "layers", m.layers)
++    cm.add("ah", "action_head", m.action_head)
++    return cm
++
++
++def bit_identical(a: torch.Tensor, b: torch.Tensor) -> bool:
++    """Exact equality of the stored bits (stricter than value equality: -0.0 vs 0.0)."""
++    int_view = {torch.float32: torch.int32, torch.bfloat16: torch.int16, torch.float16: torch.int16}[a.dtype]
++    return a.dtype == b.dtype and torch.equal(a.view(int_view), b.view(int_view))
++
++
++def test_parse_noop_is_a_control_not_the_baseline():
++    spec = parse_spec("noop")
++    assert spec is NOOP and spec.name == "NOOP"
++    assert not spec.is_baseline          # so quantize_modules does NOT return early
++    assert spec.weight.bits == 16 and spec.act is None
++    assert "NOOP" in PRESETS
++    assert parse_spec("W16") is BASELINE  # existing meaning unchanged
++
++
++@pytest.mark.parametrize("dtype", [torch.float32, torch.bfloat16, torch.float16])
++@pytest.mark.parametrize("scope", ["ve", "e2e", "llm+ah"])
++def test_noop_leaves_every_parameter_bit_identical(dtype, scope):
++    torch.manual_seed(0)
++    m = ToyVLA().to(dtype)
++    with torch.no_grad():  # include awkward values: signed zero, tiny and huge magnitudes
++        m.vision_blocks[0].weight[0, :4] = torch.tensor([-0.0, 1e-30, -3e4, 7.0], dtype=torch.float32).to(dtype)
++    before = {n: p.detach().clone() for n, p in m.named_parameters()}
++    reports = quantize_scope(cmap_of(m), NOOP, scope=scope, compute_error=True)
++    assert sum(r.n_layers for r in reports.values()) > 0
++    for n, p in m.named_parameters():
++        assert bit_identical(p.detach(), before[n]), n
++    for r in reports.values():
++        assert r.mean_rel_mse() == 0.0
++
++
++def test_noop_selects_exactly_the_layers_w4_would_quantize():
++    m_noop, m_w4 = ToyVLA(), ToyVLA()
++    r_noop = quantize_scope(cmap_of(m_noop), NOOP, scope="ve")
++    r_w4 = quantize_scope(cmap_of(m_w4), parse_spec("W4"), scope="ve")
++    assert [l.name for l in r_noop["ve"].layers] == [l.name for l in r_w4["ve"].layers]
++    assert r_noop["ve"].n_params == r_w4["ve"].n_params
++    # the path really ran: in-scope modules are marked, out-of-scope ones are not
++    assert getattr(m_noop.vision_blocks[0], _QUANT_MARK_ATTR) == "NOOP"
++    assert getattr(m_noop.action_head[0], _QUANT_MARK_ATTR, None) is None
++
++
++def test_noop_forward_output_is_bit_identical():
++    torch.manual_seed(1)
++    m = ToyVLA().to(torch.bfloat16).eval()
++    x = torch.randn(4, 8).to(torch.bfloat16)
++    with torch.no_grad():
++        y0 = m(x)
++        quantize_scope(cmap_of(m), NOOP, scope="e2e")
++        y1 = m(x)
++    assert bit_identical(y0, y1)
++
++
++def test_w4_still_changes_weights():
++    """Guard against the NOOP edit accidentally turning real quantization off."""
++    torch.manual_seed(2)
++    m = ToyVLA()
++    w = m.vision_blocks[0].weight.detach().clone()
++    quantize_scope(cmap_of(m), parse_spec("W4"), scope="ve")
++    assert not torch.equal(w, m.vision_blocks[0].weight)
+diff --git a/vlaquantbench/cli.py b/vlaquantbench/cli.py
+index e9297ca..7f7d96c 100644
+--- a/vlaquantbench/cli.py
++++ b/vlaquantbench/cli.py
+@@ -387,7 +387,7 @@ def build_parser() -> argparse.ArgumentParser:
+     add_model_args(run)
+     run.add_argument("--benchmark", required=True, choices=sorted(BENCHMARKS))
+     run.add_argument("--suite", required=True)
+-    run.add_argument("--preset", default="BASELINE", help="W3 | W4 | W8 | W4A4 | W4A8 | W8A8 | W2 | BASELINE | custom e.g. W3G64")
++    run.add_argument("--preset", default="BASELINE", help="W3 | W4 | W8 | W4A4 | W4A8 | W8A8 | W2 | BASELINE | NOOP (identity control) | custom e.g. W3G64")
+     run.add_argument("--scope", default="e2e", help="e2e | ve | mp | llm | ah | llm+ah ...")
+     run.add_argument("--method", default="rtn", help="rtn | awq | nf4 | int8 | smoothquant (LLM-only methods need --scope llm)")
+     run.add_argument("--calib", default=None, help="calibration data override for LLM PTQ methods")
+diff --git a/vlaquantbench/quant/fake_quant.py b/vlaquantbench/quant/fake_quant.py
+index c4dd79b..bd1602a 100644
+--- a/vlaquantbench/quant/fake_quant.py
++++ b/vlaquantbench/quant/fake_quant.py
+@@ -135,10 +135,13 @@ def fake_quant_weight(weight: torch.Tensor, spec: WeightQuantSpec) -> torch.Tens
+     channel first (``nn.Conv2d``: ``[out, in, kh, kw]``); N-D weights are
+     flattened to ``[out, -1]`` for grouping and reshaped back.
+     """
+-    if spec.bits >= 16:
+-        return weight.clone()
+     orig_shape, orig_dtype = weight.shape, weight.dtype
+     w = weight.detach().reshape(orig_shape[0], -1).to(torch.float32)
++    if spec.bits >= 16:
++        # Identity transform (the NOOP control preset): the weight takes the same
++        # reshape -> float32 -> cast-back path as a real quantizer, without rounding.
++        # bf16/fp16 -> fp32 -> bf16/fp16 is exact, so the result is bit-identical.
++        return w.reshape(orig_shape).to(orig_dtype).clone()
+     out_f, in_f = w.shape
+ 
+     if spec.granularity == "per_tensor":
+diff --git a/vlaquantbench/quant/presets.py b/vlaquantbench/quant/presets.py
+index 8a1fe5e..d0cef24 100644
+--- a/vlaquantbench/quant/presets.py
++++ b/vlaquantbench/quant/presets.py
+@@ -7,6 +7,11 @@ Preset grammar (case-insensitive)::
+ Examples: ``W4`` ``W3`` ``W8`` ``W4A8`` ``W4A4`` ``W8A8`` ``W2`` ``W3G64``
+ ``W4A8SYM`` ``W16`` (= baseline, no-op).
+ 
++``NOOP`` is a control, not a baseline: it runs the full weight-quantization path
++(layer selection, in-place weight rewrite, module marking, quantization report)
++with an identity transform, so a NOOP cell must reproduce the BASELINE cell. A
++mismatch points at the harness, not at quantization.
++
+ Defaults when the modifiers are omitted follow the benchmark protocol:
+ 
+ ==========  =====================================  =====================
+@@ -60,6 +65,8 @@ def parse_spec(text: str, *, default_group_size: int = DEFAULT_GROUP_SIZE) -> Qu
+     key = text.strip().replace("-", "").replace("_", "").upper()
+     if key in ("BASELINE", "FP", "BF16", "FP32", "FP16", "NONE", "W16"):
+         return BASELINE
++    if key == "NOOP":
++        return NOOP
+     m = _PATTERN.match(key)
+     if not m:
+         raise ValueError(
+@@ -100,8 +107,13 @@ def parse_spec(text: str, *, default_group_size: int = DEFAULT_GROUP_SIZE) -> Qu
+ 
+ BASELINE = QuantSpec(name="BASELINE")
+ 
++#: Identity control: is_baseline is False, so quantize_modules walks and rewrites every
++#: in-scope layer exactly as for W4/W8, but fake_quant_weight(bits=16) changes nothing.
++NOOP = QuantSpec(name="NOOP", weight=WeightQuantSpec(bits=16, granularity="per_channel"))
++
+ #: The six settings evaluated in the paper plus W2 (added for the released benchmark).
+ PRESETS: dict[str, QuantSpec] = {
+     name: parse_spec(name) for name in ("W2", "W3", "W4", "W8", "W4A4", "W4A8", "W8A8")
+ }
+ PRESETS["BASELINE"] = BASELINE
++PRESETS["NOOP"] = NOOP
+-- 
+2.43.0
+

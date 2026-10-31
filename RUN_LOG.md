@@ -1,0 +1,141 @@
+# Run log
+
+One entry per run, newest at the bottom. Log every run, including failed, stopped and pilot
+runs, plus any change to the machine or environment. If a result surprises you, write it
+down here before trying to explain it.
+
+**Entry template**
+
+```
+### <ID> · <short title>
+- Date / who: 
+- Machine / env / commit: qvla-l4 · vqb_a|vqb_b · VLAQuantBench 4a2cb7c + patches <…> · repo <commit>
+- Command:
+- Output file:
+- Result:
+- Checks:
+- Deviations / notes:
+```
+
+---
+
+## Machine and environment changes
+
+### 2026-10-29 · VM and environment A (Smitha)
+- Created `qvla-l4` (L4, 23 GB) in `us-central1-c`. Shared conda in `/opt/miniforge3`, work
+  in `/opt/qvla` (group `qvla`). Rendering needs `export PYOPENGL_PLATFORM=egl`.
+- Built `vqb_a` from VLAQuantBench's LeRobot setup script. Deviations:
+  - LeRobot **0.5.1** instead of the pinned 0.5.2, which does not exist (torch 2.10.0, same
+    as VLAQuantBench's records). The README's resources table still says 0.5.2.
+  - Installed cmake and build tools for `egl_probe`.
+  - MuJoCo re-pinned to **3.3.2** (the setup had installed 3.8.1).
+  - Installed the NVIDIA graphics package for EGL rendering (the image only had compute).
+  - Added 32 GB swap (loading π0 ran out of RAM).
+  - Logged in to Hugging Face for the PaliGemma tokenizer (shared token).
+- `vqb inspect` matches VLAQuantBench's published layer counts: VE 162 layers / 411.1M params.
+- Lost a morning to L4 stockouts in the zone. If the VM won't start, wait an hour and retry.
+- Machine type `g2-standard-8`; image `common-cu129-ubuntu-2204-nvidia-580` (Google Deep
+  Learning VM, Ubuntu 22.04); boot disk ~145 GB (from the start-up error and login banner, Oct 30).
+- *Smitha: add the exact package names.*
+
+### 2026-10-30 · Amina's login and VLAQuantBench patches (Amina)
+- Added to `~/.bashrc` (same values as Smitha's, confirmed by her): `umask 002`,
+  `HF_HOME=/opt/qvla/hf_cache`, `LIBERO_CONFIG_PATH=/opt/qvla/libero_config`,
+  `MUJOCO_GL=egl`, `PYOPENGL_PLATFORM=egl`.
+- `git config --global --add safe.directory /opt/qvla/third_party/VLAQuantBench` (the clone is
+  owned by Smitha's login; git refuses another user's repo without this).
+- **Hugging Face token was owner-only** (`-rw-------`), so other logins couldn't load π0
+  (`PermissionError` on `/opt/qvla/hf_cache/token`). Fixed with
+  `sudo chmod g+r /opt/qvla/hf_cache/token /opt/qvla/hf_cache/stored_tokens` (now `-rw-r-----`:
+  group read-only). Running `hf auth login` again resets it to owner-only; redo the chmod then.
+- Clone was `4a2cb7c` (detached), only `scripts/env/setup_lerobot.sh` modified. Created branch
+  `qvla-patches` and applied patches 0001–0003 with `git am` → **`qvla-patches` @ `c497a0d`**.
+  This is the VLAQuantBench version from E0b on. `vqb presets` lists `NOOP`.
+- The team repo is not cloned on the VM. Patches and scripts were uploaded to `~` with the
+  SSH-in-browser UPLOAD FILE button; results downloaded with DOWNLOAD FILE.
+- L4 stockout again 11:50–~15:00; the VM started on a later try.
+
+---
+
+## Runs
+
+### E0a · BF16 on clean Spatial, environment A
+- Date / who: 2026-10-29 (started 23:03) · Smitha
+- Machine / env / commit: qvla-l4 (NVIDIA L4) · vqb_a · Python 3.12.16 · VLAQuantBench `4a2cb7c`, **unpatched**
+- Command: **TODO (Smitha: paste the exact command).** No `--episodes`, so it ran the default 50 per task.
+- Output file: `results/E0/E0a-BF16-spatial.jsonl`
+- Result: **76.0% (152/200)** on the first 20 episodes per task, inside the 71.8–83.2% target
+  (published: 78.0%). 76.6% (383/500) on all 500.
+  Per task (first 20): 15, 16, 18, 18, 16, 12, 17, 15, 12, 13.
+- Checks: header `episodes_per_task: 50`, `quant_report` 0 layers everywhere, 280 steps, 360 px.
+  Mean wall time 16.5 s per episode (median 13.2 s), peak VRAM 8.4 GB.
+- Statistical comparison with VLAQuantBench's published BF16 file
+  (`parity_check.py rollouts --mode statistical`): **PASS** with the fixed script (Oct 30). The
+  first version printed FAIL here, only because of the expected 50-vs-20 `episodes_per_task`
+  difference, and printed no verdict line; "PASS" was first written from the numbers by hand.
+  Gap +2.0 points, task-clustered
+  95% CI [−3.5, +7.5], McNemar p = 0.665. But only 152/200 matched episodes have the same
+  outcome (26 vs. 22 discordant). Different machine and different noise per episode, so
+  episodes can't be compared one by one across runs like these.
+- Deviations / notes: ran 500 episodes because `--episodes` was omitted. `--out` needs a
+  file name, not a folder.
+
+### E0b · NOOP parity check, environment A: **PASS**
+- Date / who: 2026-10-30, ~15:40–18:55 PT · Amina
+- Machine / env / commit: qvla-l4 (NVIDIA L4) · vqb_a · VLAQuantBench `qvla-patches` @ `c497a0d`
+- VM output folder: `/opt/qvla/runs/E0b/` (separate from E0, so `vqb summarize` can't merge
+  these BASELINE runs with E0a). Repo copies in `results/E0/`.
+
+**Weight check**
+- Command: `python ~/parity_check.py weights --model pi0 --preset NOOP --scope ve`
+- Result: **PASS**. `ve: 162 quantizable layers`, `162 layers touched`, `parameters changed: 0 of 778`.
+- Note: all 162 VE layers are **float32** in this checkpoint (`weight dtypes {'float32': 162}`),
+  so VE-W4 rounded weights are stored back in float32, not BF16. Fix the wording in the report
+  (proposal 4.2 says the rounded weights "are stored as BF16").
+
+**Runs** (clean Spatial, `--episodes 20`, 200 episodes each)
+
+| Run | Command (all `vqb run --model pi0 --benchmark libero --suite libero_spatial --episodes 20`) | File | Success |
+|---|---|---|---|
+| E0b-1 | `--preset BASELINE --scope e2e` | `E0b-BF16-patched-spatial.jsonl` | 75.5% (151/200), Wilson [69.1, 80.9] |
+| E0b-2 | `--preset NOOP --scope ve` (header: `ve` 162 layers) | `E0b-NOOP-spatial.jsonl` | 75.5% (151/200) |
+| E0b-3 | `--preset BASELINE --scope e2e` (chance-level rerun) | `E0b-BF16-patched-rerun-spatial.jsonl` | 76.0% (152/200) |
+
+Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
+
+**Comparisons** (`parity_check.py rollouts`)
+
+| Comparison | Same success and steps | Same success | Flips (n10 / n01) | Paired gap, 95% CI |
+|---|---|---|---|---|
+| E0b-1 BF16 vs E0b-2 NOOP (exact) | 191/200 | 198/200 | 1 / 1 | +0.0 [−1.5, +1.5] |
+| E0b-1 BF16 vs E0b-3 BF16 rerun (exact) | 192/200 | 199/200 | 0 / 1 | −0.5 [−1.5, +0.0] |
+| E0a vs E0b-1 (statistical) | 17/200 | 133/200 | 34 / 33 | +0.5 [−6.0, +6.5], McNemar p = 1.0; PASS with the fixed script |
+
+- **Conclusion: the NOOP preset does not change the model.** The weights are bit-identical, and
+  NOOP vs. BF16 differs no more than BF16 vs. itself. The exact check "fails" only because the
+  GPU is not bit-for-bit repeatable: with identical model and seeds, ~4% of episodes change
+  their step count and ~0.5–1% flip outcome. Several of the same episodes wobble in both
+  comparisons (task 0 ep 11, task 2 ep 1, task 4 ep 15, task 6 ep 12).
+- **Consequence:** exact episode-by-episode parity is not achievable on this machine; parity
+  checks (E1a) use the BF16-rerun mismatch count as the chance level, and analysis stays
+  statistical. Outcome flips from GPU noise alone (~1%) are a floor for discordance in the
+  E1 power update.
+- **The seed patch matters:** with different noise (E0a, unpatched, vs. E0b-1), 67/200 outcomes
+  flip although the success rates agree (76.0% vs. 75.5%); with matched noise only 1–2 flip.
+- Deviation: the statistical E0a comparison printed no verdict line (it treated the expected
+  50-vs-20 `episodes_per_task` difference as a failure). Fixed in `scripts/parity_check.py`.
+
+---
+
+## Decisions
+
+### 2026-10-30 · After E0b, before any core data (Amina and Smitha, PR review)
+- **Keep the episode-seed patch (0002) for all core runs.** E0b shows why: with unmatched
+  noise 67/200 outcomes flip between two BF16 runs, with matched noise 1–2.
+- **Bootstrap: tasks-only (`bootstrap_within: fixed`) is primary**, the two-stage scheme of
+  proposal §7.1 is reported as sensitivity. Based on the coverage simulation (99% vs. 92–94%
+  coverage for a nominal 95% interval). Recorded in `configs/frozen_design.yaml`.
+- **`LIBERO_CONFIG_PATH` per conda env** (`/opt/qvla/libero_config_a` for `vqb_a`, `_b` for
+  `vqb_b`) instead of `~/.bashrc`; migration steps in `docs/SETUP.md` §1, still to do on the VM.
+- `qrp_bootstrap.py` now refuses cells that differ in hostname, GPU, VLAQuantBench commit,
+  seed or episodes per task (one-machine rule at analysis time).

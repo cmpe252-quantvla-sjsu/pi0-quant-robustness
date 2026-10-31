@@ -1,0 +1,60 @@
+From 1a9d4cb4077738363e9bc0024503a10fa26ae8dc Mon Sep 17 00:00:00 2001
+From: Amina Akhtar <aminaakhtar801@gmail.com>
+Date: Tue, 20 Oct 2026 12:37:45 -0700
+Subject: [PATCH 3/3] Write new runs to runs/ so they cannot resume the
+ released logs
+
+---
+ .gitignore                  |  3 +++
+ tests/test_stats_results.py | 10 ++++++++++
+ vlaquantbench/cli.py        |  5 ++++-
+ 3 files changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/.gitignore b/.gitignore
+index 513c821..2f3fff6 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -13,3 +13,6 @@ third_party/
+ results/**/*.mp4
+ *.log
+ .DS_Store
++
++# new evaluation runs (released logs stay in results/)
++runs/
+diff --git a/tests/test_stats_results.py b/tests/test_stats_results.py
+index 6d284af..b5a4ee7 100644
+--- a/tests/test_stats_results.py
++++ b/tests/test_stats_results.py
+@@ -59,3 +59,13 @@ def test_seed_is_part_of_a_runs_identity(tmp_path):
+         pass
+     else:
+         raise AssertionError("appending a different seed to the same file must be refused")
++
++
++def test_new_runs_never_resume_the_released_logs():
++    """A fresh BASELINE run must not land on results/, where the released 200-episode
++    file is header-compatible and would be 'resumed' with zero new episodes."""
++    from vlaquantbench.cli import REPO_ROOT, default_out_path
++
++    p = default_out_path("pi0", "libero", "libero_spatial", "rtn", "BASELINE", "e2e", False)
++    assert p.parts[-5] == "runs"
++    assert not p.is_relative_to(REPO_ROOT / "results")
+diff --git a/vlaquantbench/cli.py b/vlaquantbench/cli.py
+index 7f7d96c..cad1ee1 100644
+--- a/vlaquantbench/cli.py
++++ b/vlaquantbench/cli.py
+@@ -65,7 +65,10 @@ def resolve_checkpoint(model: str, checkpoint: str | None, benchmark: str, suite
+ def default_out_path(model: str, benchmark: str, suite: str, method: str, preset: str, scope: str,
+                      lm_head: bool, seed: int = 0) -> Path:
+     tag = f"{method}-{preset}-{scope}" + ("-lmhead" if lm_head else "") + (f"-seed{seed}" if seed else "")
+-    return REPO_ROOT / "results" / benchmark / suite / model / f"{tag}.jsonl"
++    # New runs go to runs/, never results/: results/ holds the released logs, and RunWriter
++    # resumes any compatible file (it ignores host / GPU / commit), so a new BASELINE run
++    # pointed at results/ would skip all 200 episodes and re-report the published number.
++    return REPO_ROOT / "runs" / benchmark / suite / model / f"{tag}.jsonl"
+ 
+ 
+ def build_adapter(args) -> Any:
+-- 
+2.43.0
+

@@ -1,0 +1,81 @@
+# Frozen study design. DRAFT: filled in after E1, then committed and tagged `design-freeze`
+# before any core run (README ground rule 3). Nothing here changes after the tag.
+# Values marked TBD come from the E1 pilot or a team decision.
+
+status: draft            # -> frozen at the design freeze
+frozen_on: null          # date of the design-freeze tag
+
+model:
+  checkpoint: lerobot/pi0_libero_finetuned_v044
+  baseline_dtype: bfloat16           # released precision; the vision encoder is float32 (E0b weight check)
+  n_action_steps: 10                 # replan every 10 actions (implementation note 10)
+  camera_size: 360
+  max_steps: {libero_spatial: 280, libero_object: 280, libero_goal: 300}
+
+software:
+  vlaquantbench_commit: 4a2cb7c
+  vlaquantbench_patches: [0001-noop, 0002-episode-seed, 0003-runs-dir]   # patches/vlaquantbench/
+  vlaquantbench_patched: qvla-patches @ c497a0d   # applied on the VM Oct 30
+  liberoplus_commit: 4976dc3
+  lerobot: 0.5.1
+  torch: 2.10.0
+  mujoco: 3.3.2
+  environment: vqb_b                 # all core runs; one environment
+  machine: qvla-l4 (1x NVIDIA L4, us-central1-c)   # all core runs; one machine
+
+precision_settings:                  # proposal Table 1; spec strings are VLAQuantBench presets
+  BF16:  {preset: BASELINE, scope: e2e, role: reference}
+  NOOP:  {preset: NOOP,     scope: ve,  role: harness control (pilot only)}
+  VE-W4: {preset: W4,       scope: ve,  role: primary treatment}     # per-group g128 asymmetric RTN
+  W4:    {preset: W4,       scope: e2e, role: secondary (H2)}
+  W8:    {preset: W8,       scope: e2e, role: mild dose}             # per-channel symmetric RTN
+  optional:                          # E7, only with budget left
+    AH-W4: {preset: W4, scope: ah}
+    VE-W2: {preset: W2, scope: ve}
+
+suites: [libero_spatial, libero_object, libero_goal]   # LIBERO-Long excluded (proposal 6.2)
+run_seed: 0
+
+conditions:
+  clean:
+    episodes_per_task: 20            # 10 tasks x 20 x 3 suites = 600 per setting
+  lighting:   {difficulty_level: TBD, episodes: 300, w8_subset: 100}
+  background: {difficulty_level: TBD, episodes: 300, w8_subset: 100}
+  layout:     {difficulty_level: TBD, episodes: 300, w8_subset: 100}   # 1 stored init state: seeds vary
+  language:   {difficulty_level: TBD, episodes: 300}
+  # Shifted sample sizes may rise to 450 per shift if the E1 power update needs it.
+
+difficulty_rule:                     # proposal 6.2; uses BF16 pilot results only
+  target_bf16_success: [0.40, 0.85]  # lowest tested level in this range
+  fallback: closest level, flagged
+  drop_visual_dimension_if_bf16_below: 0.20   # -> reduced-set pooled QRP, H1 not evaluated as planned
+  null_levels: excluded
+
+variant_sampling:                    # TBD with scripts/sample_variants.py
+  preserve_clean_task_proportions: true
+  distinct_variants_where_possible: true
+  sampler_seed: TBD
+
+analysis:
+  primary: pooled visual QRP for VE-W4 (proposal Eq. 5)
+  bootstrap_replicates: 10000
+  bootstrap_seed: 0
+  bootstrap_within: fixed            # tasks only (Field & Welsh 2007); decided Oct 30, before any core data
+  bootstrap_sensitivity: resample    # proposal 7.1 as written (tasks, then pairs); reported as sensitivity
+  departure_from_proposal: >-
+    Proposal 7.1 specifies resampling tasks and then matched pairs within tasks. A coverage
+    simulation at our design size gave 99% coverage for that nominal 95% interval (within-task
+    noise counted twice) vs. 92-94% for tasks-only, so tasks-only is primary.
+  interval: 95% percentile
+  practical_threshold_pp: 5
+  h1_decision_rule: README.md "Decision rule for H1"
+  secondary_tests: [H2 W4 pooled QRP, H3 VE-W4 visual minus language, VE-W4 QRP lighting, VE-W4 QRP background, VE-W4 QRP layout]
+  multiple_comparisons: Holm, alpha 0.05, m = 5
+  sensitivity: logistic mixed-effects model (lme4), proposal Eq. 7
+
+decisions:                           # made before any core data
+  - "2026-10-30: keep the episode-seed patch (0002) for all core runs (E0b: 67/200 flips with unmatched noise vs. 1-2 matched)"
+  - "2026-10-30: bootstrap_within fixed primary, resample as sensitivity"
+
+pending_team_decisions:
+  - Core results file layout (results/README.md)
