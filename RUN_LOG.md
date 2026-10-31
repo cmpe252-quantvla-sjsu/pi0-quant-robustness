@@ -26,7 +26,7 @@ down here before trying to explain it.
   in `/opt/qvla` (group `qvla`). Rendering needs `export PYOPENGL_PLATFORM=egl`.
 - Built `vqb_a` from VLAQuantBench's LeRobot setup script. Deviations:
   - LeRobot **0.5.1** instead of the pinned 0.5.2, which does not exist (torch 2.10.0, same
-    as VLAQuantBench's records). The README's resources table still says 0.5.2.
+    as VLAQuantBench's records). README updated to 0.5.1 (Oct 31).
   - Installed cmake and build tools for `egl_probe`.
   - MuJoCo re-pinned to **3.3.2** (the setup had installed 3.8.1).
   - Installed the NVIDIA graphics package for EGL rendering (the image only had compute).
@@ -35,8 +35,13 @@ down here before trying to explain it.
 - `vqb inspect` matches VLAQuantBench's published layer counts: VE 162 layers / 411.1M params.
 - Lost a morning to L4 stockouts in the zone. If the VM won't start, wait an hour and retry.
 - Machine type `g2-standard-8`; image `common-cu129-ubuntu-2204-nvidia-580` (Google Deep
-  Learning VM, Ubuntu 22.04); boot disk ~145 GB (from the start-up error and login banner, Oct 30).
-- *Smitha: add the exact package names.*
+  Learning VM, Ubuntu 22.04); boot disk 150 GB balanced persistent disk (`df` shows 146 GB).
+- Exact packages installed (apt):
+  - `tmux git libegl1 libgl1 libglib2.0-0 ffmpeg cmake build-essential libegl1-mesa-dev`
+  - `libnvidia-gl-580-server=580.178.04-0ubuntu0.22.04.1` (the image ships the compute-only
+    `580-server` driver; this adds EGL rendering, matched to driver 580.178.04)
+- Hugging Face read token `qvla-l4-read` (Smitha's account, PaliGemma license accepted).
+- Swap: 32 GB `/swapfile`, in `/etc/fstab` (π0 load was OOM-killed at 31.5 GB RSS on 32 GB RAM).
 
 ### 2026-10-30 · Amina's login and VLAQuantBench patches (Amina)
 - Added to `~/.bashrc` (same values as Smitha's, confirmed by her): `umask 002`,
@@ -60,9 +65,10 @@ down here before trying to explain it.
 ## Runs
 
 ### E0a · BF16 on clean Spatial, environment A
-- Date / who: 2026-10-29 (started 23:03) · Smitha
+- Date / who: 2026-10-29, started 23:03 UTC (16:03 PT) · Smitha
 - Machine / env / commit: qvla-l4 (NVIDIA L4) · vqb_a · Python 3.12.16 · VLAQuantBench `4a2cb7c`, **unpatched**
-- Command: **TODO (Smitha: paste the exact command).** No `--episodes`, so it ran the default 50 per task.
+- Command: `vqb run --model pi0 --benchmark libero --suite libero_spatial --preset BASELINE --video-dir /opt/qvla/videos/E0a --out /opt/qvla/runs/E0/E0a-BF16-spatial.jsonl`
+  (no `--episodes`, so it ran the default 50 per task; run inside tmux after one dropped-connection restart)
 - Output file: `results/E0/E0a-BF16-spatial.jsonl`
 - Result: **76.0% (152/200)** on the first 20 episodes per task, inside the 71.8–83.2% target
   (published: 78.0%). 76.6% (383/500) on all 500.
