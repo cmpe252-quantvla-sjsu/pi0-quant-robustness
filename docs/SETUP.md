@@ -5,8 +5,6 @@ original π0 stack and is used for E0. **Environment B** (`vqb_b`) adds LIBERO-P
 used for E1 and every core run. All core episodes run on the same VM in environment B
 (proposal Sections 6.3–6.5).
 
-Items marked **TODO** are details Smitha has from the setup session.
-
 ## 1. The VM
 
 | Item | Value |

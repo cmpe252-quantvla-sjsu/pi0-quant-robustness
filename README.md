@@ -40,7 +40,7 @@ QRP > 0 means quantization hurts more under shift `p` than on clean scenes. The 
 | Setting | Role | Clean Spatial SR (VLAQuantBench logs) |
 |---|---|---|
 | BF16 | Reference | 78.0% |
-| No-op hook (identity) | Harness check; must match BF16 | – |
+| No-op (identity) | Harness check; must match BF16 | – |
 | W8, whole model | Mild dose | 77.5% |
 | **W4, vision encoder only** | **Primary treatment** | **76.5%** |
 | W4, whole model | Secondary | 69.0% |
@@ -77,7 +77,8 @@ pi0-quant-robustness/
 │   ├── EXPERIMENT_PLAN.md     ← E0–E7 step by step, with checks and owners
 │   ├── JSONL_SCHEMA.md        ← the shared per-episode record
 │   ├── IMPLEMENTATION_NOTES.md← what we found reading VLAQuantBench and LIBERO-Plus
-│   └── FAILURE_CODEBOOK.md    ← E5 codebook, frozen before anyone watches a video
+│   ├── FAILURE_CODEBOOK.md    ← E5 codebook, frozen before anyone watches a video
+│   └── REPORT_NOTES.md        ← running notes for the final report (wording fixes, findings)
 ├── configs/
 │   ├── frozen_design.yaml     ← difficulty levels, sample sizes, seeds; filled at design freeze
 │   └── qrp/                   ← analysis manifests (released-logs check, core study)
