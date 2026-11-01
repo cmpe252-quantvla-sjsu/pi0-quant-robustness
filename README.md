@@ -17,7 +17,7 @@ We run one released π0 checkpoint in full precision (BF16) and under a few pre-
 QRP_p = (SR_BF16,p − SR_Q,p) − (SR_BF16,clean − SR_Q,clean) = Δ_p − Δ_clean
 ```
 
-QRP > 0 means quantization hurts more under shift `p` than on clean scenes. The primary result is the pooled QRP for vision-encoder W4 across lighting, background and layout, with a 95% paired, task-clustered bootstrap interval (10,000 replicates).
+QRP > 0 means quantization hurts more under shift `p` than on clean scenes. The primary result is the pooled QRP for vision-encoder W4 across lighting, background and layout, with a 95% paired, task-clustered bootstrap interval (10,000 replicates, tasks resampled; the two-stage scheme of proposal §7.1 is reported as a sensitivity analysis, decided Oct 30 before any core data).
 
 **Decision rule for H1** (fixed before any core run):
 
@@ -40,21 +40,21 @@ QRP > 0 means quantization hurts more under shift `p` than on clean scenes. The 
 | Setting | Role | Clean Spatial SR (VLAQuantBench logs) |
 |---|---|---|
 | BF16 | Reference | 78.0% |
-| No-op hook (identity) | Harness check; must match BF16 | – |
+| No-op (identity) | Harness check; must match BF16 | – |
 | W8, whole model | Mild dose | 77.5% |
 | **W4, vision encoder only** | **Primary treatment** | **76.5%** |
 | W4, whole model | Secondary | 69.0% |
 | W4, action head only *(optional)* | Contrast away from vision | 68.5% |
 | W2, vision encoder only *(optional)* | Dose extension | 76.5% |
 
-W4 is asymmetric per-group RTN (group size 128); W8 is symmetric per-channel. Only weights are quantized, and they are stored back in BF16, so we measure accuracy, not speed or memory.
+W4 is asymmetric per-group RTN (group size 128); W8 is symmetric per-channel. Only weights are quantized, and they are stored back in the checkpoint's own precision (float32 for the vision encoder, BF16 elsewhere), so we measure accuracy, not speed or memory.
 
 ## Experiments
 
 | ID | What | Episodes | Owner |
 |---|---|---|---|
-| E0 | Harness validation in VLAQuantBench's original env: BF16 + no-op on clean Spatial | 400 | Both |
-| E1 | Final-env checks, difficulty calibration, discordance, power update | ~1,150 | Both |
+| E0 | Harness validation in VLAQuantBench's original env: BF16 + no-op on clean Spatial. **Done, PASS** (E0a 76.0% vs 78.0% published; E0b no-op at chance level) | 1,100 | Smitha (E0a), Amina (E0b) |
+| E1 | Final-env checks incl. a BF16 rerun for the chance level, difficulty calibration, discordance, power update | ~1,350 | Both |
 | E2 | Clean grid: 4 settings × Spatial/Object/Goal | 2,400 | Amina |
 | E3 | Visual-shift grid: lighting, background, layout | 3,000 | Smitha |
 | E4 | Language-rewrite contrast | 900 | Amina |
@@ -77,10 +77,14 @@ pi0-quant-robustness/
 │   ├── EXPERIMENT_PLAN.md     ← E0–E7 step by step, with checks and owners
 │   ├── JSONL_SCHEMA.md        ← the shared per-episode record
 │   ├── IMPLEMENTATION_NOTES.md← what we found reading VLAQuantBench and LIBERO-Plus
-│   └── FAILURE_CODEBOOK.md    ← E5 codebook, frozen before anyone watches a video
+│   ├── FAILURE_CODEBOOK.md    ← E5 codebook, frozen before anyone watches a video
+│   └── REPORT_NOTES.md        ← running notes for the final report (wording fixes, findings)
 ├── configs/
-│   └── frozen_design.yaml     ← difficulty levels, sample sizes, seeds; filled at design freeze
-├── quantvla/                  ← our code: LIBERO-Plus runner, no-op preset, CLI wrapper
+│   ├── frozen_design.yaml     ← difficulty levels, sample sizes, seeds; filled at design freeze
+│   └── qrp/                   ← analysis manifests (released-logs check, core study)
+├── patches/vlaquantbench/     ← our 3 patches: NOOP preset, episode seeds, runs/ output folder
+├── quantvla/                  ← our code: LIBERO-Plus runner, CLI wrapper
+├── tests/                     ← pytest for the patches' behaviour and our scripts
 ├── scripts/                   ← sampling, validation, flattening, QRP bootstrap, mixed model
 ├── analysis/                  ← notebooks and figures for the report
 └── results/                   ← per-episode JSONL (git), videos (NOT in git)
@@ -93,11 +97,11 @@ pi0-quant-robustness/
 | [VLAQuantBench](https://github.com/jiuyixu25/VLAQuantBench) (pinned `4a2cb7c`) | MIT | Quantizer, π0 adapter, LIBERO runner, replay and clustered-CI scripts, released logs |
 | [LIBERO-Plus](https://github.com/sylvestf/LIBERO-plus) (pinned `4976dc3`) + [assets](https://huggingface.co/datasets/Sylvest/LIBERO-plus) | HF metadata lists MIT | Shifted task variants |
 | [LIBERO](https://github.com/Lifelong-Robot-Learning/LIBERO) | MIT / CC BY 4.0 | Clean tasks, initial states |
-| [LeRobot](https://github.com/huggingface/lerobot) 0.5.2 | Apache 2.0 | π0 implementation |
+| [LeRobot](https://github.com/huggingface/lerobot) 0.5.1 (VQB's script pins 0.5.2, which was never released; see RUN_LOG) | Apache 2.0 | π0 implementation |
 | [`lerobot/pi0_libero_finetuned_v044`](https://huggingface.co/lerobot/pi0_libero_finetuned_v044) | Gemma terms | The policy under study |
 | MuJoCo 3.3.2, robosuite 1.4.0 | Apache 2.0, MIT | Simulation |
 
-Our three additions: a **LIBERO-Plus benchmark class**, a **no-op quantization preset**, and a **QRP analysis script**.
+Our additions: a **LIBERO-Plus benchmark class**, three small **VLAQuantBench patches** (a no-op control preset, history-independent episode seeds, a separate `runs/` output folder), and the **QRP analysis and parity-check scripts**.
 
 ## Ground rules (short version; details in CONTRIBUTING.md)
 
@@ -109,14 +113,16 @@ Our three additions: a **LIBERO-Plus benchmark class**, a **no-op quantization p
 
 ## Timeline
 
+Revised Oct 29; we are about a week behind the proposal's Table 4.
+
 | Dates | Milestone | Owner |
 |---|---|---|
-| Oct 15–19 | Env setup; reproduce BF16 on LIBERO-Spatial (target 71.8–83.2%); agree JSONL schema | Both |
-| Oct 20–26 | LIBERO-Plus class and final environment | Smitha |
-| Oct 20–26 | No-op preset, QRP bootstrap script, clean parity check | Amina |
-| Oct 27–31 | Pilot runs, difficulty calibration, power update, **design freeze** | Both |
-| Nov 1–14 | Core grid: clean + language (3,300 episodes) | Amina |
-| Nov 1–14 | Core grid: lighting, background, layout (3,000 episodes) | Smitha |
+| Oct 29 | E0a: BF16 reproduces the published baseline ✓ | Smitha |
+| Oct 30 | E0b: no-op parity check ✓ | Amina |
+| ~Nov 3 | Variant sampler + LIBERO-Plus runner | Smitha |
+| Nov 4–6 | Environment B + E1 pilot (**Nov 4 checkpoint**: cut scope if env B isn't working) | Both |
+| ~Nov 7 | **Design freeze** (`configs/frozen_design.yaml`, tag `design-freeze`) | Both |
+| Nov 8–18 | Core runs: clean + language (Amina), lighting / background / layout (Smitha) | Both |
 | Nov 15–20 | Blinded failure coding; optional replay/settings; **experiment freeze Nov 20** | Both |
 | Nov 21–Dec 5 | Analysis and report writing | Both |
 | Dec 9 / Dec 16 | Final presentation / final report | Both |

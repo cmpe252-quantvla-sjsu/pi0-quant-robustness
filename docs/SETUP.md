@@ -5,8 +5,6 @@ original π0 stack and is used for E0. **Environment B** (`vqb_b`) adds LIBERO-P
 used for E1 and every core run. All core episodes run on the same VM in environment B
 (proposal Sections 6.3–6.5).
 
-Items marked **TODO** are details Smitha has from the setup session.
-
 ## 1. The VM
 
 | Item | Value |
@@ -16,7 +14,7 @@ Items marked **TODO** are details Smitha has from the setup session.
 | GPU | 1 × NVIDIA L4 (23 GB usable) |
 | Machine type | `g2-standard-8` |
 | OS image | `common-cu129-ubuntu-2204-nvidia-580` (Google Deep Learning VM, Ubuntu 22.04) |
-| Boot disk | ~145 GB |
+| Boot disk | 150 GB balanced persistent disk (`df` shows 146 GB) |
 | Swap | 32 GB added (loading π0 ran out of RAM without it) |
 | Shared conda | `/opt/miniforge3` |
 | Shared work dir | `/opt/qvla`, group `qvla` |
@@ -85,10 +83,11 @@ Reattach later with `tmux attach -t run`.
 Built from VLAQuantBench's `scripts/env/setup_lerobot.sh`, with these fixes:
 
 1. LeRobot 0.5.2 → 0.5.1 (see above), edited in the clone's `scripts/env/setup_lerobot.sh`.
-2. Installed `cmake` and build tools so `egl_probe` compiles. Exact packages: **TODO**.
+2. Installed `cmake` and build tools so `egl_probe` compiles:
+   `sudo apt-get install -y tmux git libegl1 libgl1 libglib2.0-0 ffmpeg cmake build-essential libegl1-mesa-dev`.
 3. Re-pinned `mujoco==3.3.2`.
 4. Installed the NVIDIA graphics package for EGL rendering (the image only had the compute
-   driver). Exact package: **TODO**.
+   driver): `sudo apt-get install -y libnvidia-gl-580-server=580.178.04-0ubuntu0.22.04.1`.
 5. Added 32 GB swap.
 6. Logged in to Hugging Face (needed for the PaliGemma tokenizer). The token is shared on
    the VM; you don't need your own. It was saved owner-only, so other logins got

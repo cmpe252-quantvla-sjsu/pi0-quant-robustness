@@ -30,7 +30,7 @@ L4, more than the proposal's 12 s planning figure (E0b: same speed). At 16.5 s:
 
 | Block | Episodes | GPU-hours |
 |---|---|---|
-| E1 pilot | ~1,150 | ~5.3 |
+| E1 pilot | ~1,350 | ~5.3 |
 | Core grid E2–E4 | 6,300 | ~28.9 |
 | **Total before reruns** | **~7,450** | **~34** |
 
@@ -116,7 +116,7 @@ and compare the two BF16 runs in exact mode. That gives the mismatch count from 
 
 | Part | What | Episodes |
 |---|---|---|
-| E1a | Clean BF16 + NOOP parity in environment B | 400 |
+| E1a | Clean BF16 + NOOP parity in environment B, plus a BF16 rerun for the chance level | 600 |
 | E1b | BF16 difficulty calibration on lighting, background, layout, language | ~550 |
 | E1c | VE-W4 and W8 on one visual shift (discordance) | 200 |
 
