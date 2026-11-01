@@ -7,7 +7,7 @@ They need the patched VLAQuantBench clone installed (`pip install -e`, see `docs
 |---|---|---|---|
 | `parity_check.py` | Amina | ready | `weights`: does a preset change the model's weights? (NOOP must change nothing). `rollouts`: do two runs agree on matched episodes? `--mode exact` (same success and steps) or `--mode statistical` (Wilson + McNemar) |
 | `qrp_bootstrap.py` | Amina | ready | Primary analysis: success rates, matched gaps, per-shift and pooled QRP with the paired task-clustered bootstrap (tasks-only primary, two-stage as sensitivity), H1 decision, Holm tests. Stops if cells differ in host, GPU, commit, seed or episodes per task. Reads a manifest from `configs/qrp/` |
-| `sample_variants.py` | Smitha | todo | Variant counts per task and level; samples variants for E1 and the core runs (implementation note 7) |
+| `sample_variants.py` | Smitha | ready | `count`: variants per suite, shift and level. `sample`: writes the sample file for one shift and target level (one level for all suites, or one per suite); nearest-level fallback with the lower level on ties, max 2 fallback tasks per suite unless `--allow-over-cap`, records `target_level` / `difficulty_level` / `fallback` per episode. Tests: `tests/test_sample_variants.py` |
 | validation / flattening / mixed model | — | todo | Prompt audit, JSONL → table for R, `lme4` sensitivity model (proposal Eq. 7) |
 
 ## Examples
