@@ -60,6 +60,32 @@ down here before trying to explain it.
   SSH-in-browser UPLOAD FILE button; results downloaded with DOWNLOAD FILE.
 - L4 stockout again 11:50–~15:00; the VM started on a later try.
 
+### 2026-11-04 · `LIBERO_CONFIG_PATH` migration and environment B (Smitha)
+- `LIBERO_CONFIG_PATH` is now a conda env variable instead of a `~/.bashrc` line:
+  `vqb_a` → `/opt/qvla/libero_config_a` (copy of the old `/opt/qvla/libero_config`, kept as a
+  backup), `vqb_b` → `/opt/qvla/libero_config_b`. Removed the line from Smitha's `~/.bashrc`.
+  Amina's `~/.bashrc` line is harmless (conda overrides it on activation) but can be removed.
+  Checked: `vqb_a` still finds the original LIBERO.
+- Built `vqb_b` with `conda create --name vqb_b --clone vqb_a`, then:
+  - `pip uninstall hf_libero`.
+  - LIBERO-Plus cloned to `/opt/qvla/third_party/LIBERO-plus` @ `4976dc3`, installed with
+    `pip install -e . --no-deps --config-settings editable_mode=compat`. The normal editable
+    install registers nothing, because LIBERO-Plus's top-level `libero/` has no `__init__.py`.
+  - apt: `libexpat1 libfontconfig1-dev libmagickwand-dev unzip`.
+  - pip: `wand 0.7.2`, `scikit-image 0.26.0`, `usd-core 26.11`, `gym 0.25.2` + `gym-notices 0.1.0`
+    (`--no-deps`; LIBERO-Plus imports gym, `hf_libero` did not). `pip freeze` before/after:
+    only these were added. numpy 2.2.6, torch 2.10.0+cu128, LeRobot 0.5.1, MuJoCo 3.3.2 unchanged.
+    Gym prints an "unmaintained / NumPy 2" warning; LIBERO-Plus only uses it for type names.
+  - Assets: `hf download Sylvest/LIBERO-plus assets.zip --repo-type dataset` (6.4 GB). The zip
+    keeps the authors' long folder path; moved its `assets/` folder to
+    `LIBERO-plus/libero/libero/assets` (9.5 GB, 457k files). Zip deleted afterwards.
+- Team repo now cloned on the VM: `/opt/qvla/pi0-quant-robustness` (fine-grained GitHub token,
+  this repo only). Test runs used a local branch `vm-test` = `smitha/runner` (`4078f44`) merged
+  with `smitha/sampler` (not pushed). `pytest`: 72 passed in `vqb_b`.
+- For `--benchmark libero_plus`, VQB can't find the checkpoint automatically: pass
+  `--checkpoint lerobot/pi0_libero_finetuned_v044`.
+- Disk after setup: 95 GB used, 51 GB free.
+
 ---
 
 ## Runs
@@ -131,6 +157,39 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 - Deviation: the statistical E0a comparison printed no verdict line (it treated the expected
   50-vs-20 `episodes_per_task` difference as a failure). Fixed in `scripts/parity_check.py`.
 
+### Smoke-B · LIBERO-Plus runner smoke test, environment B
+- Date / who: 2026-11-04 · Smitha
+- Machine / env / commit: qvla-l4 · vqb_b · VLAQuantBench `qvla-patches` @ `c497a0d` · repo `vm-test`
+- Command: `python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044
+  --benchmark libero_plus --suite libero_spatial --preset BASELINE --tasks 0
+  --bench-kwargs condition=<C> sample_file=/opt/qvla/runs/smoke_b/samples/<C>.json`
+  (layout also task 6). Sample files: `sample_variants.py sample --suites libero_spatial
+  --episodes-per-task 2`, levels lighting 3, background 2, layout 3, language 3.
+- Output file: `/opt/qvla/runs/smoke_b/<C>.jsonl` (+ videos), not in the repo.
+- Result: lighting 2/2, background 2/2, layout 4/4, language 0/2 (both timed out at 280 steps).
+- Checks: no duplicate episodes. Every record has condition, variant_id, plus_id,
+  difficulty_level, target_level, fallback, init_state_id and instruction as the sample file
+  says. Layout `_add_` / `_level` variants use init state 0; task 6 recorded as fallback (L4,
+  target 3). Language episodes got the rewritten instructions; the other conditions the standard one.
+- Deviations / notes: a dropped connection killed one attempt; runs since then are in tmux.
+  The language failures are only 2 episodes. Watch them in E1.
+
+### E1a · BF16 on clean Spatial, environment B: parity **PASS**
+- Date / who: 2026-11-04 · Smitha
+- Machine / env / commit: qvla-l4 · vqb_b · VLAQuantBench `qvla-patches` @ `c497a0d` · repo `vm-test`
+- Command: `python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044
+  --benchmark libero_plus --suite libero_spatial --preset BASELINE --episodes 20
+  --out /opt/qvla/runs/E1a/clean-BF16-spatial.jsonl`
+- Output file: `/opt/qvla/runs/E1a/clean-BF16-spatial.jsonl`
+- Result: **76.0% (152/200)**, Wilson 95% [69.6, 81.4]. Peak VRAM 8.4 GB, inference ~0.45 s per chunk.
+- Checks: `parity_check.py rollouts --ref E0b-BF16-patched-spatial.jsonl` (env A, 75.5%):
+  - statistical: **PASS**. Paired gap −0.5 pp, task-clustered 95% CI [−2.0, +1.0], McNemar p = 1.000.
+  - exact: 183/200 same outcome, 120/200 same outcome and steps; flips 8 / 9. Many episodes
+    are off by 1–2 steps: LIBERO-Plus's simulation code is slightly different from LIBERO's.
+- BF16 rerun in env B (chance level): `clean-BF16-rerun-spatial.jsonl` → _fill in SR_; exact
+  compare with the first run: _fill in same outcome / same steps / flips_.
+- Deviations / notes: none.
+
 ---
 
 ## Decisions
@@ -145,3 +204,8 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   `vqb_b`) instead of `~/.bashrc`; migration steps in `docs/SETUP.md` §1, still to do on the VM.
 - `qrp_bootstrap.py` now refuses cells that differ in hostname, GPU, VLAQuantBench commit,
   seed or episodes per task (one-machine rule at analysis time).
+
+### 2026-11-04 · After E1a (Smitha; Amina to confirm)
+- **Never pair env A and env B episodes in one comparison.** Across environments 17/200
+  outcomes flip, against 1–2 within env A. All pilot and core runs in env B, as planned.
+- The per-env `LIBERO_CONFIG_PATH` from Oct 30 is now done on the VM.
