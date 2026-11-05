@@ -186,9 +186,9 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   - statistical: **PASS**. Paired gap −0.5 pp, task-clustered 95% CI [−2.0, +1.0], McNemar p = 1.000.
   - exact: 183/200 same outcome, 120/200 same outcome and steps; flips 8 / 9. Many episodes
     are off by 1–2 steps: LIBERO-Plus's simulation code is slightly different from LIBERO's.
-- BF16 rerun in env B (chance level): `clean-BF16-rerun-spatial.jsonl` → _fill in SR_; exact
-  compare with the first run: _fill in same outcome / same steps / flips_.
-- Deviations / notes: none.
+- BF16 rerun in env B (chance level): `clean-BF16-rerun-spatial.jsonl` → **76.0% (152/200)**.
+  Exact compare with the first run: 200/200 same outcome, 196/200 same outcome and steps,
+  flips 0 / 0. Inside env B, GPU noise moved 4 episodes by 1–2 steps and changed no outcome.
 
 ---
 
