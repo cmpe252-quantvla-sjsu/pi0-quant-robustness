@@ -3,7 +3,7 @@
 Same commands and options as ``vqb`` (run, inspect, tasks, summarize, ...). Run it from the
 repo root inside the conda environment, e.g.
 
-    python -m quantvla.cli run --model pi0 --benchmark libero_plus --suite libero_spatial \\
+    python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 --benchmark libero_plus --suite libero_spatial \\
         --preset BASELINE --episodes 20 --bench-kwargs condition=clean \\
         --out results/E1/clean/E1a-BF16-spatial.jsonl
 """

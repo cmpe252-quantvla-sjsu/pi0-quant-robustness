@@ -3,6 +3,8 @@
 Part 1: the file lookups the runner needs, as small functions that can be tested on a laptop
 without a simulator. Part 2: ``LiberoPlusRunner``, which VLAQuantBench runs like its own
 LIBERO runner (registered by ``quantvla/cli.py``; run with ``python -m quantvla.cli run ...``).
+For this benchmark VLAQuantBench cannot pick the checkpoint itself: always pass
+``--checkpoint lerobot/pi0_libero_finetuned_v044``.
 
 Why each one exists (docs/IMPLEMENTATION_NOTES.md):
   * LIBERO-Plus's suite lists contain only variants, not the 10 clean tasks (note 1), so
@@ -156,7 +158,7 @@ class LiberoPlusRunner(LiberoRunner):
     (suite, task_id, variant_id, episode). For a shifted condition each episode's variant,
     level and initial state come from a sample file written by ``scripts/sample_variants.py``.
 
-        python -m quantvla.cli run --model pi0 --benchmark libero_plus --suite libero_spatial \\
+        python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 --benchmark libero_plus --suite libero_spatial \\
             --preset BASELINE --bench-kwargs condition=lighting sample_file=configs/samples/E3-lighting-L3.json \\
             --out results/E3/lighting/E3-BF16-spatial.jsonl
     """
