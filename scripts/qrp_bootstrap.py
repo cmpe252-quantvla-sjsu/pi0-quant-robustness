@@ -27,9 +27,18 @@ reported as a sensitivity analysis (manifest ``sensitivity_within: resample``). 
 choice is recorded in the output.
 
 Provenance: all cells must share checkpoint, hostname, GPU, VLAQuantBench commit, run
-seed and episodes per task (the one-machine, one-environment rule). A mismatch stops the
-analysis unless the manifest sets ``allow_mixed_provenance: true`` (or the CLI flag), in
-which case it is reported as a warning.
+seed and benchmark (the one-machine, one-environment rule; ``benchmark`` separates
+environment A, ``libero``, from environment B, ``libero_plus``, whose headers otherwise
+look the same). Episodes per task must agree *within* each condition (clean runs have 20
+per task, shifted runs take theirs from the sample file); settings listed under
+``subset_settings`` (W8, which runs a subset) are exempt. A mismatch stops the analysis
+unless the manifest sets ``allow_mixed_provenance: true`` (or the CLI flag), in which case
+it is reported as a warning.
+
+Fallback sensitivity (manifest ``sensitivity_covered_only: true``): shifted episodes record
+``extra.fallback`` when their task had no variant at the target level. The sensitivity
+analysis drops, per shifted condition, every task with a fallback episode and computes
+that condition's clean gap on the same remaining tasks (pre-registered Nov 4).
 
 This extends ``clustered_ci.py``, whose within-task resampling draws the two cells'
 episodes independently; here the within-task draw is paired.
@@ -59,7 +68,9 @@ from vlaquantbench.stats import wilson_ci  # noqa: E402
 
 KINDS = ("clean", "visual", "language")
 #: Header fields that must agree across every cell of one analysis (one machine, one environment)
-PROVENANCE = ("hostname", "gpu", "vqb_commit", "seed", "episodes_per_task")
+PROVENANCE = ("hostname", "gpu", "vqb_commit", "seed", "benchmark")
+#: Header fields that must agree across the cells of one condition only
+PER_CONDITION = ("episodes_per_task",)
 
 
 # --------------------------------------------------------------------------- #
@@ -73,6 +84,7 @@ class Episode:
     episode: int
     success: int
     steps: int
+    fallback: bool = False  # extra.fallback: the task had no variant at the target level
 
     @property
     def key(self):
@@ -103,13 +115,16 @@ def load_cell(patterns, base_dir: Path):
         for line in open(p):
             d = json.loads(line)
             if d.get("kind") == "header":
-                headers.append({"path": p, **{k: d.get(k) for k in ("checkpoint", "suite", "preset", "scope") + PROVENANCE}})
+                headers.append({"path": p, **{k: d.get(k) for k in ("checkpoint", "suite", "preset", "scope")
+                                                       + PROVENANCE + PER_CONDITION}})
                 continue
             if d.get("kind") != "episode":
                 continue
-            variant = (d.get("extra") or {}).get("variant_id")
+            extra = d.get("extra") or {}
+            variant = extra.get("variant_id")
             ep = Episode(d["suite"], int(d["task_id"]), None if variant is None else str(variant),
-                         int(d["episode"]), int(bool(d["success"])), int(d.get("steps") or 0))
+                         int(d["episode"]), int(bool(d["success"])), int(d.get("steps") or 0),
+                         bool(extra.get("fallback", False)))
             if ep.key in episodes:
                 raise SystemExit(f"duplicate episode {ep.key} in {p}")
             episodes[ep.key] = ep
@@ -252,7 +267,8 @@ def holm(tests: list[tuple[str, float]], alpha: float = 0.05) -> dict:
 # Main analysis
 # --------------------------------------------------------------------------- #
 def analyse(manifest: dict, base_dir: Path, B: int, seed: int, threshold: float, log=print,
-            within: str | None = None, allow_mixed_provenance: bool | None = None) -> dict:
+            within: str | None = None, allow_mixed_provenance: bool | None = None,
+            covered_only: bool = False) -> dict:
     baseline = manifest.get("baseline", "BF16")
     primary = manifest.get("primary", "VE-W4")
     conditions = manifest["conditions"]
@@ -290,13 +306,22 @@ def analyse(manifest: dict, base_dir: Path, B: int, seed: int, threshold: float,
     if allow_mixed_provenance is None:
         allow_mixed_provenance = bool(manifest.get("allow_mixed_provenance", False))
     provenance_issues = []
-    for key in PROVENANCE:
+
+    def _differs(key, hs, where):
         seen = defaultdict(list)
-        for h in headers:
+        for h in hs:
             seen[str(h.get(key))].append(f"{h['condition']}/{h['setting']}")
         if len(seen) > 1:
             detail = "; ".join(f"{v}: {', '.join(sorted(set(c)))}" for v, c in sorted(seen.items()))
-            provenance_issues.append(f"{key} differs across cells ({detail})")
+            provenance_issues.append(f"{key} differs {where} ({detail})")
+
+    for key in PROVENANCE:
+        _differs(key, headers, "across cells")
+    subset = set(manifest.get("subset_settings", []))
+    for key in PER_CONDITION:
+        for cond in manifest["cells"]:
+            _differs(key, [h for h in headers if h["condition"] == cond and h["setting"] not in subset],
+                     f"within condition {cond!r}")
     if provenance_issues and not allow_mixed_provenance:
         raise SystemExit("cells were not produced under identical conditions (one-machine rule):\n  "
                          + "\n  ".join(provenance_issues)
@@ -331,15 +356,39 @@ def analyse(manifest: dict, base_dir: Path, B: int, seed: int, threshold: float,
             warnings.append(f"{cond}/{setting}: {pr.unmatched_q} episodes have no {baseline} partner (dropped)")
         pairs[(cond, setting)] = pr
 
+    # fallback sensitivity: per shifted condition, keep only tasks without fallback episodes, and
+    # compare against the clean gap on those same tasks
+    clean_for = {}       # (shifted cond, setting) -> clean pair to subtract
+    covered = {}
+    if covered_only:
+        for cond in visual + language:
+            fb = {e.task for (c, _), eps in cells.items() if c == cond for e in eps.values() if e.fallback}
+            keep = all_tasks - fb
+            covered[cond] = {"excluded_tasks": sorted(fb), "n_tasks": len(keep)}
+            if not keep:
+                raise SystemExit(f"{cond}: every task has a fallback episode; nothing left for the sensitivity analysis")
+            for (c, setting) in list(pairs):
+                if c != cond:
+                    continue
+                ref = {k: e for k, e in cells[(cond, baseline)].items() if e.task in keep}
+                qq = {k: e for k, e in cells[(cond, setting)].items() if e.task in keep}
+                pairs[(cond, setting)] = match(cond, setting, ref, qq, ref)
+                if (clean, setting) in pairs:
+                    cref = {k: e for k, e in cells[(clean, baseline)].items() if e.task in keep}
+                    cq = {k: e for k, e in cells[(clean, setting)].items() if e.task in keep}
+                    clean_for[(cond, setting)] = match(clean, setting, cref, cq, cref)
+
     rng = np.random.default_rng(seed)
     task_draws = draw_tasks(tasks_by_suite, B, rng)
     reps = {k: boot_gap(p, task_draws, rng, within=within) for k, p in sorted(pairs.items())}
+    clean_reps = {k: boot_gap(p, task_draws, rng, within=within) for k, p in sorted(clean_for.items())}
 
     settings = sorted({s for (_, s) in pairs})
     result = {"config": {"B": B, "seed": seed, "bootstrap_within": within, "threshold_pp": threshold,
                          "baseline": baseline, "primary": primary,
                          "clean": clean, "visual": visual, "language": language,
-                         "planned_visual_shifts": planned_visual},
+                         "planned_visual_shifts": planned_visual, "covered_only": covered_only},
+              "covered_tasks": covered,
               "headers": headers, "warnings": warnings + provenance_issues, "descriptive": [], "gaps": {}, "qrp": {}, "tests": {}}
 
     # descriptive: SR + Wilson, steps of successful episodes
@@ -364,7 +413,11 @@ def analyse(manifest: dict, base_dir: Path, B: int, seed: int, threshold: float,
         q = {}
         for cond in visual + language:
             if (cond, setting) in pairs:
-                q[cond] = (pairs[(cond, setting)].gap() - g0, reps[(cond, setting)] - r0)
+                if (cond, setting) in clean_for:   # covered-only: clean gap on the same tasks
+                    c0, cr0 = clean_for[(cond, setting)].gap(), clean_reps[(cond, setting)]
+                else:
+                    c0, cr0 = g0, r0
+                q[cond] = (pairs[(cond, setting)].gap() - c0, reps[(cond, setting)] - cr0)
         out = {c: summarize(*v) for c, v in q.items()}
         vis = [c for c in visual if c in q]
         if vis:
@@ -442,6 +495,20 @@ def to_markdown(r: dict) -> str:
                 L.append(f"| {setting} | {fmt(out['pooled_visual'])} |")
         if sv.get("H1"):
             L += ["", f"H1 under this scheme: **{sv['H1']['decision']}**"]
+    if r.get("sensitivity_covered"):
+        sc = r["sensitivity_covered"]
+        L += ["", "## Sensitivity analysis: tasks without fallback episodes only", "",
+              "Per shift, tasks with any fallback episode are dropped and the clean gap is computed on the "
+              "same remaining tasks.", "", "| condition | excluded tasks | tasks kept |", "|---|---|---|"]
+        for cond, cv in sc["covered_tasks"].items():
+            ex = ", ".join(f"{s.replace('libero_', '')} {t}" for s, t in cv["excluded_tasks"]) or "none"
+            L.append(f"| {cond} | {ex} | {cv['n_tasks']} |")
+        L += ["", "| setting | pooled visual QRP [95% CI] |", "|---|---|"]
+        for setting, out in sc["qrp"].items():
+            if "pooled_visual" in out:
+                L.append(f"| {setting} | {fmt(out['pooled_visual'])} |")
+        if sc.get("H1"):
+            L += ["", f"H1 on covered tasks only: **{sc['H1']['decision']}**"]
     if "holm" in r["tests"]:
         L += ["", f"## Secondary tests (Holm, m = {r['tests']['holm']['m']}, exploratory)", "",
               "| test | Wald p | Holm threshold | reject |", "|---|---|---|---|"]
@@ -473,6 +540,10 @@ def main(argv=None):
     if sens and sens != r["config"]["bootstrap_within"]:
         r2 = analyse(manifest, base, a.B, a.seed, a.threshold, within=sens, allow_mixed_provenance=allow)
         r["sensitivity"] = {"bootstrap_within": sens, "qrp": r2["qrp"], "H1": r2["tests"].get("H1")}
+    if manifest.get("sensitivity_covered_only"):
+        r3 = analyse(manifest, base, a.B, a.seed, a.threshold, within=a.within, allow_mixed_provenance=allow,
+                     covered_only=True)
+        r["sensitivity_covered"] = {"covered_tasks": r3["covered_tasks"], "qrp": r3["qrp"], "H1": r3["tests"].get("H1")}
     md = to_markdown(r)
     print(md)
     if a.out_json:
