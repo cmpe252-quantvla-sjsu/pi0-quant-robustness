@@ -69,7 +69,7 @@ episodes copy them from the sample file written by `scripts/sample_variants.py`.
 | `target_level` | int or null | `null` | The level chosen for this shift (per suite if levels differ by suite) |
 | `fallback` | bool | `false` | `true` if the task had no variant at `target_level`, so the nearest level was used (ties go to the lower level) |
 | `instruction` | str | Standard instruction | See below |
-| `init_state_id` | int | = `episode` | = `episode`, except single-state layout variants (`_add_`, `_level`): `0` |
+| `init_state_id` | int | = `episode % 50` | = `episode % 50`, except single-state layout variants (`_add_`, `_level`): `0` |
 
 **Instruction rule** (what π0 is told, recorded so the prompt audit can run from the JSONL):
 - clean and visual shifts: the **standard instruction**, the base task's file name with
@@ -90,7 +90,8 @@ Episodes are matched across precision settings by **(suite, task_id, variant_id,
 2. The same rollout must get the same `episode` number in every precision setting.
 3. `episode` runs 0..n−1 per task across that task's sampled variants (the sampler does
    this), so it is unique within (suite, task_id), and shifted episode *e* gets the same seed
-   as clean episode *e*.
+   as clean episode *e*. (Each base task has 50 stored initial states, so episode *e* loads
+   state `e % 50`; this equals *e* at 10 or 20 per task and differs only above 50.)
 4. Every file in one analysis has the same `checkpoint`, `seed`, `hostname`, `gpu`,
    `vqb_commit` and `benchmark`; `episodes_per_task` must agree **within** each condition
    (W8, a subset, is exempt). `qrp_bootstrap.py` stops otherwise.

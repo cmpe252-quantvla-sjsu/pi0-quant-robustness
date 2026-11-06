@@ -31,7 +31,8 @@ seed and benchmark (the one-machine, one-environment rule; ``benchmark`` separat
 environment A, ``libero``, from environment B, ``libero_plus``, whose headers otherwise
 look the same). Episodes per task must agree *within* each condition (clean runs have 20
 per task, shifted runs take theirs from the sample file); settings listed under
-``subset_settings`` (W8, which runs a subset) are exempt. A mismatch stops the analysis
+``subset_settings`` (W8, which runs a subset of each shift) are exempt in the shifted
+conditions only; in the clean condition they run the full grid and are checked. A mismatch stops the analysis
 unless the manifest sets ``allow_mixed_provenance: true`` (or the CLI flag), in which case
 it is reported as a warning.
 
@@ -39,6 +40,9 @@ Fallback sensitivity (manifest ``sensitivity_covered_only: true``): shifted epis
 ``extra.fallback`` when their task had no variant at the target level. The sensitivity
 analysis drops, per shifted condition, every task with a fallback episode and computes
 that condition's clean gap on the same remaining tasks (pre-registered Nov 4).
+The bootstrap keeps one set of task draws for all conditions (so the pooled QRP stays
+paired across shifts); a drawn task that was dropped adds neither a difference nor an
+episode to that replicate, so it is skipped, not counted as a zero gap.
 
 This extends ``clustered_ci.py``, whose within-task resampling draws the two cells'
 episodes independently; here the within-task draw is paired.
@@ -317,10 +321,13 @@ def analyse(manifest: dict, base_dir: Path, B: int, seed: int, threshold: float,
 
     for key in PROVENANCE:
         _differs(key, headers, "across cells")
+    # subset settings (W8) run a subset of the shifted episodes only; in the clean condition they
+    # run the full grid, so they are checked there like any other setting
     subset = set(manifest.get("subset_settings", []))
     for key in PER_CONDITION:
         for cond in manifest["cells"]:
-            _differs(key, [h for h in headers if h["condition"] == cond and h["setting"] not in subset],
+            exempt = subset if cond != clean else set()
+            _differs(key, [h for h in headers if h["condition"] == cond and h["setting"] not in exempt],
                      f"within condition {cond!r}")
     if provenance_issues and not allow_mixed_provenance:
         raise SystemExit("cells were not produced under identical conditions (one-machine rule):\n  "

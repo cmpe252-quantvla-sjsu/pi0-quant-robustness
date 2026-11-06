@@ -338,6 +338,19 @@ def test_episodes_per_task_is_compared_within_each_condition_only(tmp_path):
     assert q.analyse(m(4, subset=["W8"]), tmp_path, B=100, seed=0, threshold=5.0)["warnings"] == []
 
 
+def test_subset_setting_is_still_checked_in_the_clean_condition(tmp_path):
+    """W8 runs the full clean grid, so a clean W8 file with the wrong episodes_per_task is caught."""
+    ref = grid()
+    cells = {
+        "clean": {"BF16": write_cell(tmp_path / "c1.jsonl", ref, header_extra={"episodes_per_task": 20}),
+                  "W8": write_cell(tmp_path / "c2.jsonl", ref, header_extra={"episodes_per_task": 4})},
+        "light": {"BF16": write_cell(tmp_path / "l1.jsonl", ref, header_extra={"episodes_per_task": 10}),
+                  "W8": write_cell(tmp_path / "l2.jsonl", ref, header_extra={"episodes_per_task": 4})}}
+    manifest = {"conditions": COND, "cells": cells, "subset_settings": ["W8"]}
+    with pytest.raises(SystemExit, match="episodes_per_task differs within condition 'clean'"):
+        q.analyse(manifest, tmp_path, B=100, seed=0, threshold=5.0)
+
+
 def test_covered_only_drops_fallback_tasks_and_restricts_the_clean_gap(tmp_path):
     """Task (s1, 0) needed a fallback under lighting and is where quantization hurts most.
     Full analysis: light gap 50, clean gap 25 -> QRP 25. Covered only: task (s1, 0) dropped in BOTH
@@ -359,6 +372,43 @@ def test_covered_only_drops_fallback_tasks_and_restricts_the_clean_gap(tmp_path)
     assert cov["config"]["covered_only"] is True
     # the primary analysis is unchanged by the flag being available
     assert full["config"]["covered_only"] is False and full["covered_tasks"] == {}
+
+
+@pytest.mark.parametrize("within", ["fixed", "resample"])
+def test_boot_gap_skips_drawn_tasks_that_are_not_in_the_pair(within):
+    """Covered-only keeps the task draws of the full analysis. A drawn task that was dropped must add
+    nothing to the replicate (neither difference nor episodes), not a zero gap that dilutes it."""
+    units = {("s1", 0): np.array([[2, 4]]),   # task 0: 2 of 4 matched pairs only BF16 succeeds -> gap 50
+             ("s1", 1): np.array([[1, 4]])}   # task 1: gap 25; task 2 was dropped (no units)
+    pair = q.Pair("light", "VE-W4", [], np.array([]), np.array([]), 0, 0, units=units)
+    labels = [("s1", 0), ("s1", 1), ("s1", 2)]
+    pick = np.array([[0, 2, 2],    # task 0 + the dropped task twice -> 50, not 50/3
+                     [1, 2, 0],    # tasks 1 and 0 -> 3/8 = 37.5
+                     [2, 2, 2]])   # only the dropped task -> no data (NaN, removed by summarize)
+    reps = q.boot_gap(pair, [(labels, pick)], np.random.default_rng(0), within=within)
+    # (one unit per task, so "resample" draws the same unit and gives the same numbers)
+    assert reps[:2] == pytest.approx([50.0, 37.5])
+    assert np.isnan(reps[2])
+
+
+def test_covered_only_interval_contains_the_estimate_and_is_not_inflated(tmp_path):
+    """With noisy data, the covered-only CI brackets its estimate and is not much wider than the full one."""
+    rs = np.random.default_rng(1)
+    ref = grid(suites=("s1", "s2"), tasks=10, eps=10, fn=lambda s, t, e: int(rs.random() < 0.8))
+    def q_of(cells, p):
+        return {k: (v if rs.random() > p else 0) for k, v in cells.items()}
+    clean_q, light_ref = q_of(ref, 0.05), {k: int(rs.random() < 0.6) for k in ref}
+    light_q = q_of(light_ref, 0.15)
+    fb = {("s1", 3), ("s2", 7)}
+    manifest = {"conditions": COND, "cells": {
+        "clean": {"BF16": write_cell(tmp_path / "c1.jsonl", ref), "VE-W4": write_cell(tmp_path / "c2.jsonl", clean_q)},
+        "light": {"BF16": write_cell(tmp_path / "l1.jsonl", light_ref, fallback_tasks=fb),
+                  "VE-W4": write_cell(tmp_path / "l2.jsonl", light_q, fallback_tasks=fb)}}}
+    full = q.analyse(manifest, tmp_path, B=2000, seed=0, threshold=5.0)["qrp"]["VE-W4"]["light"]
+    cov = q.analyse(manifest, tmp_path, B=2000, seed=0, threshold=5.0, covered_only=True)["qrp"]["VE-W4"]["light"]
+    assert cov["ci_low"] < cov["estimate"] < cov["ci_high"]
+    # 18 of 20 tasks left: the width may grow a little (fewer tasks per replicate), not a lot
+    assert (cov["ci_high"] - cov["ci_low"]) < 1.3 * (full["ci_high"] - full["ci_low"])
 
 
 def test_covered_only_section_is_reported_by_main(tmp_path, capsys):
