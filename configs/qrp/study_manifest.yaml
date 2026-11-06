@@ -12,8 +12,11 @@ secondary_setting: W4       # H2
 planned_visual_shifts: [lighting, background, layout]   # pooled QRP is flagged "reduced set" if one is dropped
 bootstrap_within: fixed         # primary: tasks only (decided Oct 30, see configs/frozen_design.yaml)
 sensitivity_within: resample    # also reported: proposal 7.1 as written
-# Every cell must share hostname, GPU, VLAQuantBench commit, seed and episodes per task;
-# the script stops otherwise (one-machine rule). Never set allow_mixed_provenance here.
+sensitivity_covered_only: true  # also reported: tasks without fallback episodes only (decided Nov 4)
+subset_settings: [W8]           # W8 runs a subset of each shift; exempt from the per-condition episodes check
+# Every cell must share hostname, GPU, VLAQuantBench commit, seed and benchmark (libero_plus =
+# environment B), and episodes per task within each condition; the script stops otherwise.
+# Never set allow_mixed_provenance here.
 
 conditions:
   clean:      {kind: clean}

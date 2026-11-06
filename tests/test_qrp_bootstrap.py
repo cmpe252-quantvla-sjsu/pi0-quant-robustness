@@ -18,13 +18,17 @@ needs_logs = pytest.mark.skipif(not (VQB / "results/libero/libero_spatial/pi0/rt
 CKPT = "lerobot/pi0_libero_finetuned_v044"
 
 
-def write_cell(path: Path, outcomes: dict, preset="BASELINE", scope="e2e", ckpt=CKPT, shuffle=False):
+def write_cell(path: Path, outcomes: dict, preset="BASELINE", scope="e2e", ckpt=CKPT, shuffle=False,
+               header_extra: dict | None = None, fallback_tasks=()):
     """outcomes: {(suite, task_id, episode[, variant]): success}"""
-    lines = [json.dumps({"kind": "header", "checkpoint": ckpt, "preset": preset, "scope": scope, "seed": 0})]
+    lines = [json.dumps({"kind": "header", "checkpoint": ckpt, "preset": preset, "scope": scope, "seed": 0,
+                         **(header_extra or {})})]
     eps = []
     for key, ok in outcomes.items():
         suite, task, ep = key[:3]
         extra = {"variant_id": key[3]} if len(key) == 4 else {}
+        if (suite, task) in fallback_tasks:
+            extra["fallback"] = True
         eps.append(json.dumps({"kind": "episode", "suite": suite, "task_id": task, "episode": ep,
                                "success": bool(ok), "steps": 100 if ok else 280, "extra": extra}))
     if shuffle:
@@ -296,3 +300,130 @@ def test_sensitivity_section_reports_the_other_scheme(tmp_path, capsys):
     r = json.loads(out.read_text())
     assert r["config"]["bootstrap_within"] == "fixed" and r["sensitivity"]["bootstrap_within"] == "resample"
     assert r["sensitivity"]["qrp"]["VE-W4"]["pooled_visual"]["estimate"] == r["qrp"]["VE-W4"]["pooled_visual"]["estimate"]
+
+
+
+def test_benchmark_mismatch_keeps_env_a_out_of_the_core_analysis(tmp_path):
+    """Env A (libero) and env B (libero_plus) share host, GPU and commit; only benchmark tells them apart."""
+    ref = grid()
+    B = {"benchmark": "libero_plus"}
+    manifest = {"conditions": COND, "cells": {
+        "clean": {"BF16": write_cell(tmp_path / "c1.jsonl", ref, header_extra={"benchmark": "libero"}),
+                  "VE-W4": write_cell(tmp_path / "c2.jsonl", ref, header_extra=B)},
+        "light": {"BF16": write_cell(tmp_path / "l1.jsonl", ref, header_extra=B),
+                  "VE-W4": write_cell(tmp_path / "l2.jsonl", ref, header_extra=B)}}}
+    with pytest.raises(SystemExit, match="benchmark differs across cells"):
+        q.analyse(manifest, tmp_path, B=100, seed=0, threshold=5.0)
+
+
+def test_episodes_per_task_is_compared_within_each_condition_only(tmp_path):
+    ref = grid()
+    def m(light_q_ept, subset=None):
+        cells = {
+            "clean": {"BF16": write_cell(tmp_path / "c1.jsonl", ref, header_extra={"episodes_per_task": 20}),
+                      "VE-W4": write_cell(tmp_path / "c2.jsonl", ref, header_extra={"episodes_per_task": 20})},
+            "light": {"BF16": write_cell(tmp_path / "l1.jsonl", ref, header_extra={"episodes_per_task": 10}),
+                      "VE-W4": write_cell(tmp_path / "l2.jsonl", ref, header_extra={"episodes_per_task": 10}),
+                      "W8": write_cell(tmp_path / "l3.jsonl", ref, header_extra={"episodes_per_task": light_q_ept})}}
+        out = {"conditions": COND, "cells": cells}
+        if subset:
+            out["subset_settings"] = subset
+        return out
+    # clean 20 vs shifted 10 is fine: different conditions
+    assert q.analyse(m(10), tmp_path, B=100, seed=0, threshold=5.0)["warnings"] == []
+    # a setting that disagrees inside its condition stops the analysis ...
+    with pytest.raises(SystemExit, match="episodes_per_task differs within condition 'light'"):
+        q.analyse(m(4), tmp_path, B=100, seed=0, threshold=5.0)
+    # ... unless it is declared a subset setting (W8 runs a subset of the shifted episodes)
+    assert q.analyse(m(4, subset=["W8"]), tmp_path, B=100, seed=0, threshold=5.0)["warnings"] == []
+
+
+def test_subset_setting_is_still_checked_in_the_clean_condition(tmp_path):
+    """W8 runs the full clean grid, so a clean W8 file with the wrong episodes_per_task is caught."""
+    ref = grid()
+    cells = {
+        "clean": {"BF16": write_cell(tmp_path / "c1.jsonl", ref, header_extra={"episodes_per_task": 20}),
+                  "W8": write_cell(tmp_path / "c2.jsonl", ref, header_extra={"episodes_per_task": 4})},
+        "light": {"BF16": write_cell(tmp_path / "l1.jsonl", ref, header_extra={"episodes_per_task": 10}),
+                  "W8": write_cell(tmp_path / "l2.jsonl", ref, header_extra={"episodes_per_task": 4})}}
+    manifest = {"conditions": COND, "cells": cells, "subset_settings": ["W8"]}
+    with pytest.raises(SystemExit, match="episodes_per_task differs within condition 'clean'"):
+        q.analyse(manifest, tmp_path, B=100, seed=0, threshold=5.0)
+
+
+def test_covered_only_drops_fallback_tasks_and_restricts_the_clean_gap(tmp_path):
+    """Task (s1, 0) needed a fallback under lighting and is where quantization hurts most.
+    Full analysis: light gap 50, clean gap 25 -> QRP 25. Covered only: task (s1, 0) dropped in BOTH
+    conditions -> light gap 100/3, clean gap 0 -> QRP 33.3."""
+    ref = grid(suites=("s1",), tasks=4, eps=4)
+    clean_q = grid(suites=("s1",), tasks=4, eps=4, fn=lambda s, t, e: 0 if t == 0 else 1)      # gap 25
+    light_q = grid(suites=("s1",), tasks=4, eps=4, fn=lambda s, t, e: 0 if t in (0, 1) else 1)  # gap 50
+    fb = {("s1", 0)}
+    manifest = {"conditions": COND, "cells": {
+        "clean": {"BF16": write_cell(tmp_path / "c1.jsonl", ref), "VE-W4": write_cell(tmp_path / "c2.jsonl", clean_q)},
+        "light": {"BF16": write_cell(tmp_path / "l1.jsonl", ref, fallback_tasks=fb),
+                  "VE-W4": write_cell(tmp_path / "l2.jsonl", light_q, fallback_tasks=fb)}}}
+    full = q.analyse(manifest, tmp_path, B=500, seed=0, threshold=5.0)
+    assert full["qrp"]["VE-W4"]["light"]["estimate"] == pytest.approx(25.0)
+    cov = q.analyse(manifest, tmp_path, B=500, seed=0, threshold=5.0, covered_only=True)
+    assert cov["covered_tasks"]["light"] == {"excluded_tasks": [("s1", 0)], "n_tasks": 3}
+    assert cov["gaps"]["light/VE-W4"]["n_matched"] == 12
+    assert cov["qrp"]["VE-W4"]["light"]["estimate"] == pytest.approx(100 / 3)
+    assert cov["config"]["covered_only"] is True
+    # the primary analysis is unchanged by the flag being available
+    assert full["config"]["covered_only"] is False and full["covered_tasks"] == {}
+
+
+@pytest.mark.parametrize("within", ["fixed", "resample"])
+def test_boot_gap_skips_drawn_tasks_that_are_not_in_the_pair(within):
+    """Covered-only keeps the task draws of the full analysis. A drawn task that was dropped must add
+    nothing to the replicate (neither difference nor episodes), not a zero gap that dilutes it."""
+    units = {("s1", 0): np.array([[2, 4]]),   # task 0: 2 of 4 matched pairs only BF16 succeeds -> gap 50
+             ("s1", 1): np.array([[1, 4]])}   # task 1: gap 25; task 2 was dropped (no units)
+    pair = q.Pair("light", "VE-W4", [], np.array([]), np.array([]), 0, 0, units=units)
+    labels = [("s1", 0), ("s1", 1), ("s1", 2)]
+    pick = np.array([[0, 2, 2],    # task 0 + the dropped task twice -> 50, not 50/3
+                     [1, 2, 0],    # tasks 1 and 0 -> 3/8 = 37.5
+                     [2, 2, 2]])   # only the dropped task -> no data (NaN, removed by summarize)
+    reps = q.boot_gap(pair, [(labels, pick)], np.random.default_rng(0), within=within)
+    # (one unit per task, so "resample" draws the same unit and gives the same numbers)
+    assert reps[:2] == pytest.approx([50.0, 37.5])
+    assert np.isnan(reps[2])
+
+
+def test_covered_only_interval_contains_the_estimate_and_is_not_inflated(tmp_path):
+    """With noisy data, the covered-only CI brackets its estimate and is not much wider than the full one."""
+    rs = np.random.default_rng(1)
+    ref = grid(suites=("s1", "s2"), tasks=10, eps=10, fn=lambda s, t, e: int(rs.random() < 0.8))
+    def q_of(cells, p):
+        return {k: (v if rs.random() > p else 0) for k, v in cells.items()}
+    clean_q, light_ref = q_of(ref, 0.05), {k: int(rs.random() < 0.6) for k in ref}
+    light_q = q_of(light_ref, 0.15)
+    fb = {("s1", 3), ("s2", 7)}
+    manifest = {"conditions": COND, "cells": {
+        "clean": {"BF16": write_cell(tmp_path / "c1.jsonl", ref), "VE-W4": write_cell(tmp_path / "c2.jsonl", clean_q)},
+        "light": {"BF16": write_cell(tmp_path / "l1.jsonl", light_ref, fallback_tasks=fb),
+                  "VE-W4": write_cell(tmp_path / "l2.jsonl", light_q, fallback_tasks=fb)}}}
+    full = q.analyse(manifest, tmp_path, B=2000, seed=0, threshold=5.0)["qrp"]["VE-W4"]["light"]
+    cov = q.analyse(manifest, tmp_path, B=2000, seed=0, threshold=5.0, covered_only=True)["qrp"]["VE-W4"]["light"]
+    assert cov["ci_low"] < cov["estimate"] < cov["ci_high"]
+    # 18 of 20 tasks left: the width may grow a little (fewer tasks per replicate), not a lot
+    assert (cov["ci_high"] - cov["ci_low"]) < 1.3 * (full["ci_high"] - full["ci_low"])
+
+
+def test_covered_only_section_is_reported_by_main(tmp_path, capsys):
+    ref = grid(suites=("s1",), tasks=4, eps=4)
+    qq = grid(suites=("s1",), tasks=4, eps=4, fn=lambda s, t, e: 0 if t == 0 else 1)
+    fb = {("s1", 2)}
+    cells = {"clean": {"BF16": write_cell(tmp_path / "c1.jsonl", ref), "VE-W4": write_cell(tmp_path / "c2.jsonl", qq)},
+             "light": {"BF16": write_cell(tmp_path / "l1.jsonl", ref, fallback_tasks=fb),
+                       "VE-W4": write_cell(tmp_path / "l2.jsonl", qq, fallback_tasks=fb)}}
+    m = tmp_path / "m.yaml"
+    m.write_text(json.dumps({"conditions": COND, "cells": cells, "sensitivity_covered_only": True}))
+    out = tmp_path / "r.json"
+    q.main([str(m), "--B", "300", "--out-json", str(out)])
+    md = capsys.readouterr().out
+    assert "## Sensitivity analysis: tasks without fallback episodes only" in md
+    assert "| light | s1 2 | 3 |" in md
+    r = json.loads(out.read_text())
+    assert r["sensitivity_covered"]["covered_tasks"]["light"]["n_tasks"] == 3

@@ -34,27 +34,40 @@ precision_settings:                  # proposal Table 1; spec strings are VLAQua
     VE-W2: {preset: W2, scope: ve}
 
 suites: [libero_spatial, libero_object, libero_goal]   # LIBERO-Long excluded (proposal 6.2)
-run_seed: 0
+run_seed: 0                          # core runs (E2-E4); E1 pilot runs use --seed 1
 
 conditions:
   clean:
     episodes_per_task: 20            # 10 tasks x 20 x 3 suites = 600 per setting
-  lighting:   {difficulty_level: TBD, episodes: 300, w8_subset: 100}
-  background: {difficulty_level: TBD, episodes: 300, w8_subset: 100}
-  layout:     {difficulty_level: TBD, episodes: 300, w8_subset: 100}   # 1 stored init state: seeds vary
-  language:   {difficulty_level: TBD, episodes: 300}
+  # episodes_per_task 10 per task (30 tasks x 10 = 300 per shift), from the sample file.
+  # candidate_levels: the single levels where every suite needs at most 2 fallback tasks
+  # (docs/variant_counts.md); E1 calibrates among these first.
+  lighting:   {difficulty_level: TBD, candidate_levels: [3],             episodes: 300, w8_subset: 120}
+  background: {difficulty_level: TBD, candidate_levels: [1, 2, 3],       episodes: 300, w8_subset: 120}
+  layout:     {difficulty_level: TBD, candidate_levels: [3],             episodes: 300, w8_subset: 120}   # single-state variants: seeds vary
+  language:   {difficulty_level: TBD, candidate_levels: [1, 2, 3, 4, 5], episodes: 300}
   # Shifted sample sizes may rise to 450 per shift if the E1 power update needs it.
+  # w8_subset: 4 per task (120 per shift) = episodes 0-3 of the BF16 sample file (same sampler seed,
+  # shift and level, --episodes-per-task 4), so W8 pairs with BF16 without extra BF16 runs.
 
-difficulty_rule:                     # proposal 6.2; uses BF16 pilot results only
-  target_bf16_success: [0.40, 0.85]  # lowest tested level in this range
-  fallback: closest level, flagged
+difficulty_rule:                     # proposal 6.2; uses BF16 pilot results only (decided Nov 4, before E1 data)
+  target_bf16_success: [0.40, 0.85]
+  step_1: one level per shift - the lowest candidate level where BF16, pooled over the three suites, is in range
+  step_2: >-
+    only if no single level qualifies - one level per suite (sample_variants.py --level
+    spatial=..,object=..,goal=..), the lowest level in range for that suite, under the same fallback cap.
+    Reported as a departure from proposal 6.2, which assumed one level per dimension.
+  why_step_2: LIBERO-Plus level numbers are not comparable across suites (e.g. lighting 3-5 in Object, 1-3 in Spatial)
   drop_visual_dimension_if_bf16_below: 0.20   # -> reduced-set pooled QRP, H1 not evaluated as planned
   null_levels: excluded
 
-variant_sampling:                    # TBD with scripts/sample_variants.py
-  preserve_clean_task_proportions: true
+variant_sampling:                    # scripts/sample_variants.py (sampler PR, reviewed Nov 4)
+  preserve_clean_task_proportions: true   # same number of episodes for every task
   distinct_variants_where_possible: true
-  sampler_seed: TBD
+  fallback: nearest level that has a variant for the task; ties go to the lower level
+  fallback_cap: 2                         # max tasks per suite needing a fallback; over it the sampler stops
+  record: [target_level, difficulty_level, fallback]   # per episode, docs/JSONL_SCHEMA.md
+  sampler_seed: 0                         # core sample files; E1 pilot sample files use seed 1
 
 analysis:
   primary: pooled visual QRP for VE-W4 (proposal Eq. 5)
@@ -72,10 +85,18 @@ analysis:
   secondary_tests: [H2 W4 pooled QRP, H3 VE-W4 visual minus language, VE-W4 QRP lighting, VE-W4 QRP background, VE-W4 QRP layout]
   multiple_comparisons: Holm, alpha 0.05, m = 5
   sensitivity: logistic mixed-effects model (lme4), proposal Eq. 7
+  fallback_sensitivity: >-
+    per shift, drop tasks with any fallback episode and compute that shift's clean gap on the
+    same remaining tasks (qrp_bootstrap.py, manifest sensitivity_covered_only: true)
 
 decisions:                           # made before any core data
   - "2026-10-30: keep the episode-seed patch (0002) for all core runs (E0b: 67/200 flips with unmatched noise vs. 1-2 matched)"
   - "2026-10-30: bootstrap_within fixed primary, resample as sensitivity"
+  - "2026-11-04: missing tasks at a level -> nearest-level fallback (ties lower, cap 2 per suite) as primary; covered-tasks-only as sensitivity"
+  - "2026-11-04: level choice - one level per shift first, per suite only if none qualifies (difficulty_rule)"
+  - "2026-11-04: never pair environment A and environment B episodes (17/200 flips across envs vs 1-2 within)"
+  - "2026-11-04: W8 subset 120 per shift (4 per task, episodes 0-3 of the BF16 sample)"
+  - "2026-11-04: E1 pilot uses sampler seed 1 and run seed 1; core uses 0 for both (pilot and core episodes get different variants and noise)"
 
 pending_team_decisions:
   - Core results file layout (results/README.md)

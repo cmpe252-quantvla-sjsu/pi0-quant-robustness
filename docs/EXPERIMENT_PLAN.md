@@ -141,8 +141,8 @@ episodes × 3 suites = 600 episodes per setting. Files: `results/E2/clean/E2-<se
 ## E3: visual-shift grid (Smitha, 3,000 episodes)
 
 BF16, VE-W4 and whole-model W4 on lighting, background and layout, ~300 matched episodes per
-shift (task proportions as in the clean grid). W8 runs a 100-episode subset of the same
-variants per shift. Files: `results/E3/<shift>/E3-<setting>-<suite>.jsonl`.
+shift (task proportions as in the clean grid). W8 runs a 120-episode subset (4 per task:
+episodes 0–3 of the BF16 sample) per shift. Files: `results/E3/<shift>/E3-<setting>-<suite>.jsonl`.
 
 ## E4: language contrast (Amina, 900 episodes)
 

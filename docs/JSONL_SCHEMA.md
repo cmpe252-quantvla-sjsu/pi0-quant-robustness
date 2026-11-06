@@ -5,8 +5,8 @@ We keep VLAQuantBench's format unchanged (`vlaquantbench/results.py`) and put ev
 add inside the episode's `extra` object, so VLAQuantBench's own tools still read our files.
 
 Status: the header and the base episode fields are confirmed from E0a
-(`results/E0/E0a-BF16-spatial.jsonl`). The LIBERO-Plus fields in section 3 are **proposed**
-and must be confirmed against `quantvla/libero_plus.py` before E1.
+(`results/E0/E0a-BF16-spatial.jsonl`). The LIBERO-Plus fields in section 3 are **confirmed**
+against `quantvla/libero_plus.py` (runner PR, reviewed Nov 4) and the Smoke-B records.
 
 ## 1. Header (line 1)
 
@@ -15,12 +15,12 @@ and must be confirmed against `quantvla/libero_plus.py` before E1.
 | `kind` | `"header"` | Marks the header line |
 | `model` | `"pi0"` | Adapter name |
 | `checkpoint` | `"lerobot/pi0_libero_finetuned_v044"` | Must be identical in every file we compare |
-| `benchmark`, `suite` | `"libero"`, `"libero_spatial"` | Benchmark class and suite run |
+| `benchmark`, `suite` | `"libero"`, `"libero_spatial"` | Benchmark class and suite run. `libero` = environment A, `libero_plus` = environment B; **all core files are `libero_plus`** |
 | `preset` | `"BASELINE"` | `BASELINE`, `NOOP`, `W4`, `W8`, … |
 | `scope` | `"e2e"` | `e2e`, `ve`, `llm`, `ah`, … |
 | `method` | `"rtn"` | Quantizer |
 | `baseline_dtype` | `"bfloat16"` | Precision the checkpoint runs in |
-| `episodes_per_task` | `50` | **Must be 20 for our runs** (pass `--episodes 20`; the default is 50) |
+| `episodes_per_task` | `50` | Clean runs: **20** (pass `--episodes 20`; the default is 50). Shifted runs: set by the sample file (e.g. 10); leave `--episodes` out |
 | `seed` | `0` | Run seed |
 | `quant_report` | `{"ve": {"layers": 0, "params": 0, "mean_rel_mse": null}, …}` | What was actually quantized, per component |
 | `extra` | `{"adapter_options": {}, …}` | CLI options |
@@ -55,17 +55,31 @@ and must be confirmed against `quantvla/libero_plus.py` before E1.
 | `extra.action_mode` | str | `"delta"` |
 | `extra.init_state_id` | int | Which stored initial state was loaded |
 
-## 3. Fields we add in `extra` for LIBERO-Plus episodes (proposed)
+## 3. Fields the LIBERO-Plus runner adds in `extra` (environment B)
 
-| Field | Type | Meaning |
-|---|---|---|
-| `condition` | str | `clean`, `lighting`, `background`, `layout`, `language` |
-| `variant_id` | str or null | LIBERO-Plus variant **name** (stable). `null` for clean episodes. Implementation note 5 |
-| `plus_id` | int or null | The variant's `id` in `task_classification.json` (1-based) |
-| `difficulty_level` | int or null | Level from `task_classification.json`; `null` levels are never used (note 6) |
-| `instruction` | str | The exact text given to π0: base BDDL instruction for visual shifts, rewritten one for language (note 4) |
+Every episode of a `libero_plus` run, clean ones included, carries these fields. Shifted
+episodes copy them from the sample file written by `scripts/sample_variants.py`.
 
-Layout variants have one stored initial state (note 3): record `init_state_id = 0` and vary the seed.
+| Field | Type | Clean episode | Shifted episode |
+|---|---|---|---|
+| `condition` | str | `"clean"` | `lighting`, `background`, `layout` or `language` |
+| `variant_id` | str or null | `null` | LIBERO-Plus variant **name** (stable; implementation note 5) |
+| `plus_id` | int or null | `null` | The variant's `id` in `task_classification.json` (1-based) |
+| `difficulty_level` | int or null | `null` | The variant's real level. `null` levels are never sampled (note 6) |
+| `target_level` | int or null | `null` | The level chosen for this shift (per suite if levels differ by suite) |
+| `fallback` | bool | `false` | `true` if the task had no variant at `target_level`, so the nearest level was used (ties go to the lower level) |
+| `instruction` | str | Standard instruction | See below |
+| `init_state_id` | int | = `episode % 50` | = `episode % 50`, except single-state layout variants (`_add_`, `_level`): `0` |
+
+**Instruction rule** (what π0 is told, recorded so the prompt audit can run from the JSONL):
+- clean and visual shifts: the **standard instruction**, the base task's file name with
+  spaces (`"pick up the black bowl between the plate and the ramekin and place it on the
+  plate"`), exactly what VLAQuantBench gives π0 on clean LIBERO and what E0 used. The BDDL's
+  own `(:language ...)` line differs ("Pick the akita black bowl ...") and is **not** used.
+- language shifts: the **rewritten** `(:language ...)` text from the variant's BDDL.
+
+So the prompt audit checks: visual-shift `instruction` == the clean instruction of the same
+task; language `instruction` != it.
 
 ## 4. Matching rules (needed by `scripts/qrp_bootstrap.py`)
 
@@ -74,8 +88,13 @@ Episodes are matched across precision settings by **(suite, task_id, variant_id,
 1. `suite` and `task_id` are always the **base** suite and task (0–9), also for shifted
    episodes. The QRP script refuses task IDs that are not in the clean grid.
 2. The same rollout must get the same `episode` number in every precision setting.
-3. **Recommended:** make `episode` unique within (suite, task_id) across variants, e.g.
-   episodes 0–19 of a task spread over its sampled variants. Otherwise two variants of one
-   task share an `episode` number and therefore the same noise seed.
-4. Every file in a comparison has the same `checkpoint`, `seed` and `episodes_per_task`.
-5. Pilot files (E0, E1) never go into the core-grid manifest.
+3. `episode` runs 0..n−1 per task across that task's sampled variants (the sampler does
+   this), so it is unique within (suite, task_id), and shifted episode *e* gets the same seed
+   as clean episode *e*. (Each base task has 50 stored initial states, so episode *e* loads
+   state `e % 50`; this equals *e* at 10 or 20 per task and differs only above 50.)
+4. Every file in one analysis has the same `checkpoint`, `seed`, `hostname`, `gpu`,
+   `vqb_commit` and `benchmark`; `episodes_per_task` must agree **within** each condition
+   (W8, a subset, is exempt). `qrp_bootstrap.py` stops otherwise.
+5. **Never pair environment A and environment B episodes** (decision Nov 4): across the
+   environments 17/200 outcomes flip, within one 1–2. The `benchmark` check enforces it.
+6. Pilot files (E0, E1) never go into the core-grid manifest.
