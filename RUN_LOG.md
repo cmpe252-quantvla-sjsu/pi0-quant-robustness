@@ -152,13 +152,13 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   `python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 --benchmark libero_plus --suite libero_object --preset BASELINE --seed 1 --episodes 2 --bench-kwargs condition=clean --out /opt/qvla/runs/E1b/language/control-BF16-clean-object-s1.jsonl`
   (and the same with `libero_goal` → `control-BF16-clean-goal-s1.jsonl`)
 - Output files: `results/E1/clean/E1-BF16-{object,goal}-control.jsonl`
-- Result: **Object 17/20, Goal 19/20** (VLAQuantBench's released BF16 on the same episodes 0–1: 18/20 and 18/20).
+- Result: **Object 17/20, Goal 19/20** (VLAQuantBench's released BF16 with the same initial states, episodes 0–1, but different noise: 18/20 and 18/20).
 - Notes: same episodes, initial states and noise as the language run; only the instruction differs. So (1) the language drop is real, not an environment problem, and (2) environment B is fine on Object and Goal (E1a covered Spatial).
 - My runs left `/tmp/robosuite.log` owned by my user, which blocked Smitha's later runs; she turned robosuite file logging off in vqb_b (see her entry).
 
 ### E1-power · Power update (Amina)
 - Date / who: 2026-11-06 · Amina (laptop, no GPU)
-- Inputs: E1b BF16 rates per shift (Smitha's visual calibration incl. the background top-up), E1c lighting VE-W4 vs BF16 (120 matched pairs: n10 = 4, n01 = 3, discordance 5.8%), VLAQuantBench released clean BF16 per-task rates.
+- Inputs: E1b BF16 rates per shift (Smitha's visual calibration incl. the background top-up; lighting also uses the E1c BF16 episodes 2–3, so 120 episodes), E1c lighting VE-W4 vs BF16 (120 matched pairs: n10 = 4, n01 = 3, discordance 5.8%), VLAQuantBench released clean BF16 per-task rates.
 - Command: `python scripts/power_update.py --e1 <folder with E1b/ and E1c/> --vqb ../VLAQuantBench --sims 300 --B 1000 --out-md analysis/E1_power_update.md`
 - Result: projected SE of the pooled VE-W4 QRP **≈ 1.2 pp at 300 per shift**, 1.1 pp at 450; ~1.7 pp if discordance doubles. Rule threshold 2.5 pp → **keep 300 per shift**. Details: `analysis/E1_power_update.md`.
 - Notes: clean VE-W4 discordance in env B is assumed equal to E1c; the released clean Spatial logs give 6.5%, close to it.

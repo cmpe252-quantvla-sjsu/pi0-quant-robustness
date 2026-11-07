@@ -12,7 +12,8 @@ sample size (up to 450 per shift) before the design freeze.
 Inputs
 - Clean BF16 success per task: VLAQuantBench's released BF16 logs (same checkpoint, 20 per
   task, all three suites). Environment A, but used only as planning numbers.
-- Shifted BF16 success per suite: E1b calibration files (BF16, chosen level per shift).
+- Shifted BF16 success per suite: E1b calibration files (BF16, chosen level per shift), plus
+  the E1c BF16 episodes 2-3 for lighting and the top-up for background (120 episodes each).
   Per-task rates are the clean ones moved on the logit scale to match each suite's E1b rate.
 - Discordance: E1c lighting VE-W4 vs BF16 matched pairs, as two rates:
   a = P(VE-W4 fails | BF16 succeeds), b = P(VE-W4 succeeds | BF16 fails).
@@ -40,7 +41,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import qrp_bootstrap as q  # noqa: E402
 
 SUITES = ("libero_spatial", "libero_object", "libero_goal")
-SHIFTS = {"lighting": "E1b/visual/BF16-lighting-L3-*.jsonl",
+SHIFTS = {"lighting": ["E1b/visual/BF16-lighting-L3-*.jsonl", "E1c/BF16-ep23-*.jsonl"],   # episodes 0-1 and 2-3
           "background": "E1b/visual/BF16-background-L1*.jsonl",     # includes the top-up
           "layout": "E1b/visual/BF16-layout-L3-*.jsonl"}
 E1C_BF16 = ["E1b/visual/BF16-lighting-L3-*.jsonl", "E1c/BF16-ep23-*.jsonl"]   # BF16 episodes 0-1 and 2-3

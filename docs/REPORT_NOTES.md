@@ -26,5 +26,9 @@ Add to this list as you go; each item says where it comes from.
 - **Matched noise matters:** with unmatched flow-matching noise, 67/200 outcomes flip between
   two BF16 runs although the success rates agree; with matched noise only 1–2 flip. This is
   why we added the episode-seed patch (0002) and why paired analysis has much less noise.
+- **Power update assumption (E1):** environment B has no clean VE-W4 data before E2, so the
+  power update assumes clean discordance equals E1c's lighting value (5.8%). VLAQuantBench's
+  released clean Spatial logs give 6.5%, close to it. Check against E2's real clean discordance
+  in the report (`analysis/E1_power_update.md`).
 - **Harness fixes we contributed to VLAQuantBench usage:** the no-op preset, history-independent
   episode seeds, and a default output folder that can't resume the released logs.
