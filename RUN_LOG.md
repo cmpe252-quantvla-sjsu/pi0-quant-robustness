@@ -131,8 +131,39 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 - Deviation: the statistical E0a comparison printed no verdict line (it treated the expected
   50-vs-20 `episodes_per_task` difference as a failure). Fixed in `scripts/parity_check.py`.
 
----
 
+### E1b-language · BF16 language calibration, level 1, environment B (Amina)
+- Date / who: 2026-11-05, 09:29–10:07 PT · Amina
+- Machine / env / commit: qvla-l4 · vqb_b · VLAQuantBench 4a2cb7c + patches (qvla-patches @ c497a0d) · repo d08b8e9 (main)
+- Sample file (sampler seed 1, 2 per task):
+  `python scripts/sample_variants.py sample --liberoplus /opt/qvla/third_party/LIBERO-plus --vqb /opt/qvla/third_party/VLAQuantBench --condition language --level 1 --episodes-per-task 2 --seed 1 --out /opt/qvla/runs/E1b/language/samples/L1-s1.json`
+  → 60 episodes. Goal tasks 0 and 6 have no level-1 rewrite and fall back to level 2 (2 tasks, at the cap). Same summary as the laptop run the night before. Committed as `configs/samples/E1/language-L1-s1.json`.
+- Command (run seed 1):
+  `for S in libero_spatial libero_object libero_goal; do python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 --benchmark libero_plus --suite $S --preset BASELINE --seed 1 --bench-kwargs condition=language sample_file=/opt/qvla/runs/E1b/language/samples/L1-s1.json --out /opt/qvla/runs/E1b/language/BF16-L1-$S.jsonl; done`
+- Output files: `results/E1/language/E1-BF16-{spatial,object,goal}-L1.jsonl` (copied from `/opt/qvla/runs/E1b/language/`)
+- Result: Spatial 1/20, Object 2/20, Goal 7/20 → **10/60 = 16.7% pooled**.
+- Checks: `extra.instruction` holds the BDDL rewrite in all 60 episodes; none equals the standard instruction.
+- Notes: below 40% at the lowest level, so language fails the difficulty rule (proposal 6.2): levels 2–5 not run, and **H3 is omitted** as pre-registered. Many level-1 rewrites replace object names with descriptions ("the solid dairy product", "the woven holder") or add chatter; π0 fails even on near-standard wording ("grab the ketchup and set it in the basket").
+
+### E1b-control · Clean BF16 on Object and Goal, environment B (Amina)
+- Date / who: 2026-11-05, 10:16–10:43 PT · Amina
+- Machine / env / commit: as above
+- Commands:
+  `python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 --benchmark libero_plus --suite libero_object --preset BASELINE --seed 1 --episodes 2 --bench-kwargs condition=clean --out /opt/qvla/runs/E1b/language/control-BF16-clean-object-s1.jsonl`
+  (and the same with `libero_goal` → `control-BF16-clean-goal-s1.jsonl`)
+- Output files: `results/E1/clean/E1-BF16-{object,goal}-control.jsonl`
+- Result: **Object 17/20, Goal 19/20** (VLAQuantBench's released BF16 on the same episodes 0–1: 18/20 and 18/20).
+- Notes: same episodes, initial states and noise as the language run; only the instruction differs. So (1) the language drop is real, not an environment problem, and (2) environment B is fine on Object and Goal (E1a covered Spatial).
+- My runs left `/tmp/robosuite.log` owned by my user, which blocked Smitha's later runs; she turned robosuite file logging off in vqb_b (see her entry).
+
+### E1-power · Power update (Amina)
+- Date / who: 2026-11-06 · Amina (laptop, no GPU)
+- Inputs: E1b BF16 rates per shift (Smitha's visual calibration incl. the background top-up), E1c lighting VE-W4 vs BF16 (120 matched pairs: n10 = 4, n01 = 3, discordance 5.8%), VLAQuantBench released clean BF16 per-task rates.
+- Command: `python scripts/power_update.py --e1 <folder with E1b/ and E1c/> --vqb ../VLAQuantBench --sims 300 --B 1000 --out-md analysis/E1_power_update.md`
+- Result: projected SE of the pooled VE-W4 QRP **≈ 1.2 pp at 300 per shift**, 1.1 pp at 450; ~1.7 pp if discordance doubles. Rule threshold 2.5 pp → **keep 300 per shift**. Details: `analysis/E1_power_update.md`.
+- Notes: clean VE-W4 discordance in env B is assumed equal to E1c; the released clean Spatial logs give 6.5%, close to it.
+
+---
 ## Decisions
 
 ### 2026-10-30 · After E0b, before any core data (Amina and Smitha, PR review)
