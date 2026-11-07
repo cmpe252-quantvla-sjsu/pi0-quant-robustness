@@ -60,6 +60,15 @@ down here before trying to explain it.
   SSH-in-browser UPLOAD FILE button; results downloaded with DOWNLOAD FILE.
 - L4 stockout again 11:50–~15:00; the VM started on a later try.
 
+### 2026-11-05/06 · robosuite log file and env B lock (Smitha)
+- robosuite writes `/tmp/robosuite.log`. Amina's morning runs created it under her login, so
+  Smitha's runs failed (`PermissionError: /tmp/robosuite.log`). Deleted it (`sudo rm`) and
+  turned off robosuite's file logging in `vqb_b`: ran `robosuite/scripts/setup_macros.py`,
+  then set `FILE_LOGGING_LEVEL = None` in `macros_private.py`. Rollouts are unaffected.
+  `pip freeze` does not capture this, so it is noted in the lock file. `vqb_a` unchanged.
+- Nov 6: `configs/env_b.lock.txt` written (pip freeze, NVIDIA L4 / driver 580.178.04,
+  VLAQuantBench `c497a0d`, LIBERO-Plus `4976dc3`, host qvla-l4). Branch `smitha/env-b-lock`.
+
 ---
 
 ## Runs
@@ -131,6 +140,37 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 - Deviation: the statistical E0a comparison printed no verdict line (it treated the expected
   50-vs-20 `episodes_per_task` difference as a failure). Fixed in `scripts/parity_check.py`.
 
+### E1b-visual · BF16 difficulty calibration, visual shifts, environment B
+- Date / who: 2026-11-05 (~16:50–18:20 PT) · Smitha
+- Machine / env / commit: qvla-l4 · vqb_b · VLAQuantBench `qvla-patches` @ `c497a0d` · repo main @ `d08b8e9`
+- Command: `sample_variants.py sample --episodes-per-task 2 --seed 1` (lighting L3, layout L3,
+  background L1), then `python -m quantvla.cli run ... --preset BASELINE --seed 1` per suite.
+- Output file: `/opt/qvla/runs/E1b/visual/` (not in the repo)
+- Result (BF16, pooled over 3 suites, 60 episodes each):
+
+  | Shift | Spatial | Object | Goal | Pooled |
+  |---|---|---|---|---|
+  | Lighting L3 | 13/20 | 14/20 | 18/20 | **75.0%** |
+  | Layout L3 | 14/20 | 14/20 | 10/20 | **63.3%** |
+  | Background L1 | 15/20 | 16/20 | 18/20 | **81.7%** |
+
+  Background L1 was near 85%, so topped up with episodes 2–3 (4/task file, `--episodes-from 2`):
+  **80.8% (97/120)**, still in range.
+- Checks: at most 2 fallback tasks per suite in every sample file (sampler output).
+- Deviations / notes: first attempt failed on `/tmp/robosuite.log` (see machine changes).
+
+### E1c · VE-W4 and W8 on lighting L3, environment B
+- Date / who: 2026-11-05 overnight · Smitha
+- Machine / env / commit: as E1b-visual
+- Command: lighting L3 sample, 4/task, sampler seed 1. BF16 episodes 2–3 (`--episodes-from 2`;
+  episodes 0–1 are E1b's), VE-W4 (`--preset W4 --scope ve`) and W8 (`--preset W8 --scope e2e`)
+  on episodes 0–3; all `--seed 1`.
+- Output file: `/opt/qvla/runs/E1c/` (not in the repo)
+- Result: BF16 **75.8% (91/120)**. VE-W4 **75.0% (90/120)**: discordant 4 / 3 (5.8%).
+  W8 **72.5% (87/120)**: discordant 7 / 3 (8.3%).
+- Notes: GPU noise alone flips 0/200 in env B (E1a rerun), so VE-W4 does change individual
+  outcomes, but they nearly cancel. Pilot only, never in the core manifest. Input to the power update.
+
 ---
 
 ## Decisions
@@ -145,3 +185,7 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   `vqb_b`) instead of `~/.bashrc`; migration steps in `docs/SETUP.md` §1, still to do on the VM.
 - `qrp_bootstrap.py` now refuses cells that differ in hostname, GPU, VLAQuantBench commit,
   seed or episodes per task (one-machine rule at analysis time).
+
+### 2026-11-06 · E1 difficulty levels (Smitha and Amina)
+- Lighting L3, layout L3, background L1: one level for all suites (difficulty_rule step 1).
+- E1 runs used sampler seed 1 and run seed 1; core runs use 0 for both.
