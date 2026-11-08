@@ -1,9 +1,9 @@
-# Frozen study design. DRAFT: filled in after E1, then committed and tagged `design-freeze`
-# before any core run (README ground rule 3). Nothing here changes after the tag.
-# Values marked TBD come from the E1 pilot or a team decision.
+# Frozen study design. Filled in after E1, committed and tagged `design-freeze` before any
+# core run (README ground rule 3). Nothing here changes after the tag; a necessary change is
+# logged in RUN_LOG.md and reported as a deviation.
 
-status: draft            # -> frozen at the design freeze
-frozen_on: null          # date of the design-freeze tag
+status: frozen
+frozen_on: 2026-11-08                # date of the design-freeze tag
 
 model:
   checkpoint: lerobot/pi0_libero_finetuned_v044
@@ -21,6 +21,7 @@ software:
   torch: 2.10.0
   mujoco: 3.3.2
   environment: vqb_b                 # all core runs; one environment
+  environment_lock: configs/env_b.lock.txt   # pip freeze, GPU/driver, commits, robosuite logging change
   machine: qvla-l4 (1x NVIDIA L4, us-central1-c)   # all core runs; one machine
 
 precision_settings:                  # proposal Table 1; spec strings are VLAQuantBench presets
@@ -34,21 +35,41 @@ precision_settings:                  # proposal Table 1; spec strings are VLAQua
     VE-W2: {preset: W2, scope: ve}
 
 suites: [libero_spatial, libero_object, libero_goal]   # LIBERO-Long excluded (proposal 6.2)
-run_seed: 0                          # core runs (E2-E4); E1 pilot runs use --seed 1
+run_seed: 0                          # core runs (vqb / quantvla.cli --seed 0); E1 pilot runs used --seed 1
 
 conditions:
   clean:
-    episodes_per_task: 20            # 10 tasks x 20 x 3 suites = 600 per setting
-  # episodes_per_task 10 per task (30 tasks x 10 = 300 per shift), from the sample file.
-  # candidate_levels: the single levels where every suite needs at most 2 fallback tasks
-  # (docs/variant_counts.md); E1 calibrates among these first.
-  lighting:   {difficulty_level: TBD, candidate_levels: [3],             episodes: 300, w8_subset: 120}
-  background: {difficulty_level: TBD, candidate_levels: [1, 2, 3],       episodes: 300, w8_subset: 120}
-  layout:     {difficulty_level: TBD, candidate_levels: [3],             episodes: 300, w8_subset: 120}   # single-state variants: seeds vary
-  language:   {difficulty_level: TBD, candidate_levels: [1, 2, 3, 4, 5], episodes: 300}
-  # Shifted sample sizes may rise to 450 per shift if the E1 power update needs it.
-  # w8_subset: 4 per task (120 per shift) = episodes 0-3 of the BF16 sample file (same sampler seed,
-  # shift and level, --episodes-per-task 4), so W8 pairs with BF16 without extra BF16 runs.
+    episodes_per_task: 20            # 10 tasks x 20 x 3 suites = 600 per setting; pass --episodes 20
+  # Shifted: 10 per task (30 tasks x 10 = 300 per shift) from the sample file; W8 runs the
+  # 4-per-task file = episodes 0-3 of the same sample (same sampler seed, shift and level), so it
+  # pairs with BF16 without extra BF16 runs. Do not pass --episodes for shifted runs.
+  lighting:
+    difficulty_level: 3              # one level for all suites (difficulty_rule step 1)
+    e1_bf16: 0.758                   # 91/120 (E1b episodes 0-1: 75.0%, plus E1c BF16 episodes 2-3)
+    episodes: 300
+    w8_subset: 120
+    sample_file: configs/samples/core/lighting-L3-s0.json
+    w8_sample_file: configs/samples/core/lighting-L3-s0-w8.json
+  background:
+    difficulty_level: 1
+    e1_bf16: 0.808                   # 97/120 incl. the top-up (near 85%, so topped up before deciding)
+    episodes: 300
+    w8_subset: 120
+    sample_file: configs/samples/core/background-L1-s0.json
+    w8_sample_file: configs/samples/core/background-L1-s0-w8.json
+  layout:
+    difficulty_level: 3
+    e1_bf16: 0.633                   # 38/60
+    episodes: 300
+    w8_subset: 120
+    sample_file: configs/samples/core/layout-L3-s0.json
+    w8_sample_file: configs/samples/core/layout-L3-s0-w8.json
+    note: single-state variants (_add_, _level) load init state 0; episodes differ by noise seed
+  language:
+    status: dropped                  # H3 omitted, E4 not run (see decisions)
+    e1_bf16_level_1: 0.167           # 10/60 at the lowest level; clean controls on the same episodes 17/20, 19/20
+  # Shifted sample size stays at 300 per shift: the E1 power update projects a pooled VE-W4 QRP
+  # SE of 1.17 pp (rule: raise to 450 only above ~2.5 pp). analysis/E1_power_update.md
 
 difficulty_rule:                     # proposal 6.2; uses BF16 pilot results only (decided Nov 4, before E1 data)
   target_bf16_success: [0.40, 0.85]
@@ -60,6 +81,7 @@ difficulty_rule:                     # proposal 6.2; uses BF16 pilot results onl
   why_step_2: LIBERO-Plus level numbers are not comparable across suites (e.g. lighting 3-5 in Object, 1-3 in Spatial)
   drop_visual_dimension_if_bf16_below: 0.20   # -> reduced-set pooled QRP, H1 not evaluated as planned
   null_levels: excluded
+  outcome: step 1 for all three visual shifts; not needed for step 2
 
 variant_sampling:                    # scripts/sample_variants.py (sampler PR, reviewed Nov 4)
   preserve_clean_task_proportions: true   # same number of episodes for every task
@@ -67,7 +89,13 @@ variant_sampling:                    # scripts/sample_variants.py (sampler PR, r
   fallback: nearest level that has a variant for the task; ties go to the lower level
   fallback_cap: 2                         # max tasks per suite needing a fallback; over it the sampler stops
   record: [target_level, difficulty_level, fallback]   # per episode, docs/JSONL_SCHEMA.md
-  sampler_seed: 0                         # core sample files; E1 pilot sample files use seed 1
+  sampler_seed: 0                         # core sample files; E1 pilot sample files used seed 1
+  core_sample_files: configs/samples/core/   # generated with seed 0 and committed before the tag
+
+core_split:                          # who runs, commits the result files and writes the RUN_LOG entries
+  amina: [E2 clean grid (BF16, VE-W4, W4, W8), layout (BF16, VE-W4, W4, W8 subset)]
+  smitha: [lighting (BF16, VE-W4, W4, W8 subset), background (BF16, VE-W4, W4, W8 subset)]
+  gpu: one job at a time on qvla-l4; slots agreed in advance
 
 analysis:
   primary: pooled visual QRP for VE-W4 (proposal Eq. 5)
@@ -82,12 +110,13 @@ analysis:
   interval: 95% percentile
   practical_threshold_pp: 5
   h1_decision_rule: README.md "Decision rule for H1"
-  secondary_tests: [H2 W4 pooled QRP, H3 VE-W4 visual minus language, VE-W4 QRP lighting, VE-W4 QRP background, VE-W4 QRP layout]
-  multiple_comparisons: Holm, alpha 0.05, m = 5
+  secondary_tests: [H2 W4 pooled QRP, VE-W4 QRP lighting, VE-W4 QRP background, VE-W4 QRP layout]
+  multiple_comparisons: Holm, alpha 0.05, m = 4      # H3 dropped with the language condition
   sensitivity: logistic mixed-effects model (lme4), proposal Eq. 7
   fallback_sensitivity: >-
     per shift, drop tasks with any fallback episode and compute that shift's clean gap on the
     same remaining tasks (qrp_bootstrap.py, manifest sensitivity_covered_only: true)
+  manifest: configs/qrp/study_manifest.yaml
 
 decisions:                           # made before any core data
   - "2026-10-30: keep the episode-seed patch (0002) for all core runs (E0b: 67/200 flips with unmatched noise vs. 1-2 matched)"
@@ -97,6 +126,10 @@ decisions:                           # made before any core data
   - "2026-11-04: never pair environment A and environment B episodes (17/200 flips across envs vs 1-2 within)"
   - "2026-11-04: W8 subset 120 per shift (4 per task, episodes 0-3 of the BF16 sample)"
   - "2026-11-04: E1 pilot uses sampler seed 1 and run seed 1; core uses 0 for both (pilot and core episodes get different variants and noise)"
+  - "2026-11-05: language fails the difficulty rule (BF16 16.7% at level 1, the lowest; clean controls on the same episodes 17/20 and 19/20) -> H3 omitted as pre-registered (proposal 6.2)"
+  - "2026-11-06: levels lighting 3, layout 3, background 1, one level for all suites (E1b; background topped up to 120 episodes, 80.8%)"
+  - "2026-11-06: shifted sample size stays 300 per shift (E1 power update: pooled VE-W4 QRP SE 1.17 pp, rule 2.5 pp)"
+  - "2026-11-07: E4 is not run (H3 dropped; a near-floor language QRP says little); its ~4 GPU-hours are not reassigned since the power update needs no increase"
+  - "2026-11-07: core split - Amina E2 + layout, Smitha lighting + background; whoever runs a condition commits its files and RUN_LOG entries"
 
-pending_team_decisions:
-  - Core results file layout (results/README.md)
+pending_team_decisions: []
