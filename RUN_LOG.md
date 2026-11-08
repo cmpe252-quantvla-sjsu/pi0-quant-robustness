@@ -306,3 +306,19 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 ### 2026-11-06 · E1 difficulty levels (Smitha and Amina)
 - Lighting L3, layout L3, background L1: one level for all suites (difficulty_rule step 1).
 - E1 runs used sampler seed 1 and run seed 1; core runs use 0 for both.
+
+### 2026-11-08 · Design freeze (Amina and Smitha)
+- Freeze PR #10 (Amina, branch `amina/design-freeze`), reviewed and merged by Smitha; she
+  regenerated the lighting core samples on the VM (byte-identical) and ran the tests.
+- Tag **`design-freeze`** on merge commit `05efb22` (2026-11-08 08:25 PT, created by Smitha).
+  No core run started before it; lighting BF16 started 09:47 PT.
+- Frozen in `configs/frozen_design.yaml`: levels lighting L3, layout L3, background L1 (one level
+  for all suites); 300 per shift (10/task), W8 120 (4/task, episodes 0–3 of the same sample),
+  clean 20/task; sampler seed 0 and run seed 0; language dropped (H3 omitted, E4 not run,
+  Holm m = 4); core split Amina E2 + layout, Smitha lighting + background; env lock
+  `configs/env_b.lock.txt`.
+- Core sample files in `configs/samples/core/` (sampler seed 0). Every `-w8` file equals
+  episodes 0–3 of its 10/task file (checked for all three shifts).
+- Core runs also save videos with `--video-dir` (`/opt/qvla/videos/E2/clean/<setting>/`,
+  `/opt/qvla/videos/E3/<condition>/<setting>/`), needed for E5.
+- From here on, any change to the frozen design is logged here as a deviation.
