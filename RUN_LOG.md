@@ -60,6 +60,16 @@ down here before trying to explain it.
   SSH-in-browser UPLOAD FILE button; results downloaded with DOWNLOAD FILE.
 - L4 stockout again 11:50–~15:00; the VM started on a later try.
 
+
+### 2026-11-05/06 · robosuite log file and env B lock (Smitha)
+- robosuite writes `/tmp/robosuite.log`. Amina's morning runs created it under her login, so
+  Smitha's runs failed (`PermissionError: /tmp/robosuite.log`). Deleted it (`sudo rm`) and
+  turned off robosuite's file logging in `vqb_b`: ran `robosuite/scripts/setup_macros.py`,
+  then set `FILE_LOGGING_LEVEL = None` in `macros_private.py`. Rollouts are unaffected.
+  `pip freeze` does not capture this, so it is noted in the lock file. `vqb_a` unchanged.
+- Nov 6: `configs/env_b.lock.txt` written (pip freeze, NVIDIA L4 / driver 580.178.04,
+  VLAQuantBench `c497a0d`, LIBERO-Plus `4976dc3`, host qvla-l4). Branch `smitha/env-b-lock`.
+
 ### 2026-11-04 · `LIBERO_CONFIG_PATH` migration and environment B (Smitha)
 - `LIBERO_CONFIG_PATH` is now a conda env variable instead of a `~/.bashrc` line:
   `vqb_a` → `/opt/qvla/libero_config_a` (copy of the old `/opt/qvla/libero_config`, kept as a
@@ -85,6 +95,7 @@ down here before trying to explain it.
 - For `--benchmark libero_plus`, VQB can't find the checkpoint automatically: pass
   `--checkpoint lerobot/pi0_libero_finetuned_v044`.
 - Disk after setup: 95 GB used, 51 GB free.
+
 
 ---
 
@@ -157,6 +168,59 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 - Deviation: the statistical E0a comparison printed no verdict line (it treated the expected
   50-vs-20 `episodes_per_task` difference as a failure). Fixed in `scripts/parity_check.py`.
 
+
+### E1b-visual · BF16 difficulty calibration, visual shifts, environment B
+- Date / who: 2026-11-05 (~16:50–18:20 PT) · Smitha
+- Machine / env / commit: qvla-l4 · vqb_b · VLAQuantBench `qvla-patches` @ `c497a0d` · repo main @ `d08b8e9`
+- Command (in `/opt/qvla/pi0-quant-robustness`, `vqb_b`):
+  ```bash
+  SV="python scripts/sample_variants.py sample --liberoplus /opt/qvla/third_party/LIBERO-plus --vqb /opt/qvla/third_party/VLAQuantBench --episodes-per-task 2 --seed 1"
+  $SV --condition lighting   --level 3 --out $D/samples/lighting-L3-s1.json
+  $SV --condition layout     --level 3 --out $D/samples/layout-L3-s1.json
+  $SV --condition background --level 1 --out $D/samples/background-L1-s1.json
+  for C in lighting-L3 layout-L3 background-L1; do for S in libero_spatial libero_object libero_goal; do
+    python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 \
+      --benchmark libero_plus --suite $S --preset BASELINE --seed 1 \
+      --bench-kwargs condition=${C%-*} sample_file=$D/samples/$C-s1.json --out $D/BF16-$C-$S.jsonl
+  done; done
+  ```
+  with `D=/opt/qvla/runs/E1b/visual`. Background top-up: same, with `--episodes-per-task 4`
+  (`background-L1-s1-4pt.json`), `--episodes-from 2`, output `BF16-background-L1-topup-$S.jsonl`.
+- Output file: `/opt/qvla/runs/E1b/visual/`; repo copy `results/E1/E1b/visual/` (+ `samples/`)
+- Result (BF16, pooled over 3 suites, 60 episodes each):
+
+  | Shift | Spatial | Object | Goal | Pooled |
+  |---|---|---|---|---|
+  | Lighting L3 | 13/20 | 14/20 | 18/20 | **75.0%** |
+  | Layout L3 | 14/20 | 14/20 | 10/20 | **63.3%** |
+  | Background L1 | 15/20 | 16/20 | 18/20 | **81.7%** |
+
+  Background L1 was near 85%, so topped up with episodes 2–3 (4/task file, `--episodes-from 2`):
+  **80.8% (97/120)**, still in range.
+- Checks: at most 2 fallback tasks per suite in every sample file (sampler output).
+- Deviations / notes: first attempt failed on `/tmp/robosuite.log` (see machine changes).
+
+### E1c · VE-W4 and W8 on lighting L3, environment B
+- Date / who: 2026-11-05 overnight · Smitha
+- Machine / env / commit: as E1b-visual
+- Command (`E=/opt/qvla/runs/E1c`):
+  ```bash
+  python scripts/sample_variants.py sample --liberoplus /opt/qvla/third_party/LIBERO-plus --vqb /opt/qvla/third_party/VLAQuantBench --seed 1 --episodes-per-task 4 --condition lighting --level 3 --out $E/lighting-L3-s1-4pt.json
+  RUN="python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 --benchmark libero_plus --seed 1"
+  LB="condition=lighting sample_file=$E/lighting-L3-s1-4pt.json"
+  for S in libero_spatial libero_object libero_goal; do
+    $RUN --suite $S --preset BASELINE --episodes-from 2 --bench-kwargs $LB --out $E/BF16-ep23-$S.jsonl
+    $RUN --suite $S --preset W4 --scope ve  --bench-kwargs $LB --out $E/VEW4-$S.jsonl
+    $RUN --suite $S --preset W8 --scope e2e --bench-kwargs $LB --out $E/W8-$S.jsonl
+  done
+  ```
+  BF16 episodes 0–1 are E1b's lighting files (same sampler seed, so the same variants).
+- Output file: `/opt/qvla/runs/E1c/`; repo copy `results/E1/E1c/`
+- Result: BF16 **75.8% (91/120)**. VE-W4 **75.0% (90/120)**: discordant 4 / 3 (5.8%).
+  W8 **72.5% (87/120)**: discordant 7 / 3 (8.3%).
+- Notes: GPU noise alone flips 0/200 in env B (E1a rerun), so VE-W4 does change individual
+  outcomes, but they nearly cancel. Pilot only, never in the core manifest. Input to the power update.
+
 ### Smoke-B · LIBERO-Plus runner smoke test, environment B
 - Date / who: 2026-11-04 · Smitha
 - Machine / env / commit: qvla-l4 · vqb_b · VLAQuantBench `qvla-patches` @ `c497a0d` · repo `vm-test`
@@ -190,6 +254,7 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   Exact compare with the first run: 200/200 same outcome, 196/200 same outcome and steps,
   flips 0 / 0. Inside env B, GPU noise moved 4 episodes by 1–2 steps and changed no outcome.
 
+
 ---
 
 ## Decisions
@@ -205,7 +270,13 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 - `qrp_bootstrap.py` now refuses cells that differ in hostname, GPU, VLAQuantBench commit,
   seed or episodes per task (one-machine rule at analysis time).
 
+
+### 2026-11-06 · E1 difficulty levels (Smitha and Amina)
+- Lighting L3, layout L3, background L1: one level for all suites (difficulty_rule step 1).
+- E1 runs used sampler seed 1 and run seed 1; core runs use 0 for both.
+
 ### 2026-11-04 · After E1a (Smitha; Amina to confirm)
 - **Never pair env A and env B episodes in one comparison.** Across environments 17/200
   outcomes flip, against 1–2 within env A. All pilot and core runs in env B, as planned.
 - The per-env `LIBERO_CONFIG_PATH` from Oct 30 is now done on the VM.
+
