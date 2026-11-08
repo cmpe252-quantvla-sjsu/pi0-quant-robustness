@@ -176,3 +176,6 @@ VLAQuantBench c497a0dc04faa95eb72dba6a5db2d870087c6609
 LIBERO-plus 4976dc30028e805ff8094b55501d532c48fec182
 robosuite macros_private.py: FILE_LOGGING_LEVEL = None (added Nov 5)
 host qvla-l4
+env vqb_b, Python 3.12.16
+VLAQuantBench c497a0d exists only on the VM: rebuild = 4a2cb7c + patches/vlaquantbench/0001-0003 (git am)
+note: both opencv-python and opencv-python-headless are installed (inherited from vqb_a); cv2 imports fine
