@@ -143,9 +143,21 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 ### E1b-visual · BF16 difficulty calibration, visual shifts, environment B
 - Date / who: 2026-11-05 (~16:50–18:20 PT) · Smitha
 - Machine / env / commit: qvla-l4 · vqb_b · VLAQuantBench `qvla-patches` @ `c497a0d` · repo main @ `d08b8e9`
-- Command: `sample_variants.py sample --episodes-per-task 2 --seed 1` (lighting L3, layout L3,
-  background L1), then `python -m quantvla.cli run ... --preset BASELINE --seed 1` per suite.
-- Output file: `/opt/qvla/runs/E1b/visual/` (not in the repo)
+- Command (in `/opt/qvla/pi0-quant-robustness`, `vqb_b`):
+  ```bash
+  SV="python scripts/sample_variants.py sample --liberoplus /opt/qvla/third_party/LIBERO-plus --vqb /opt/qvla/third_party/VLAQuantBench --episodes-per-task 2 --seed 1"
+  $SV --condition lighting   --level 3 --out $D/samples/lighting-L3-s1.json
+  $SV --condition layout     --level 3 --out $D/samples/layout-L3-s1.json
+  $SV --condition background --level 1 --out $D/samples/background-L1-s1.json
+  for C in lighting-L3 layout-L3 background-L1; do for S in libero_spatial libero_object libero_goal; do
+    python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 \
+      --benchmark libero_plus --suite $S --preset BASELINE --seed 1 \
+      --bench-kwargs condition=${C%-*} sample_file=$D/samples/$C-s1.json --out $D/BF16-$C-$S.jsonl
+  done; done
+  ```
+  with `D=/opt/qvla/runs/E1b/visual`. Background top-up: same, with `--episodes-per-task 4`
+  (`background-L1-s1-4pt.json`), `--episodes-from 2`, output `BF16-background-L1-topup-$S.jsonl`.
+- Output file: `/opt/qvla/runs/E1b/visual/`; repo copy `results/E1/E1b/visual/` (+ `samples/`)
 - Result (BF16, pooled over 3 suites, 60 episodes each):
 
   | Shift | Spatial | Object | Goal | Pooled |
@@ -162,10 +174,19 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 ### E1c · VE-W4 and W8 on lighting L3, environment B
 - Date / who: 2026-11-05 overnight · Smitha
 - Machine / env / commit: as E1b-visual
-- Command: lighting L3 sample, 4/task, sampler seed 1. BF16 episodes 2–3 (`--episodes-from 2`;
-  episodes 0–1 are E1b's), VE-W4 (`--preset W4 --scope ve`) and W8 (`--preset W8 --scope e2e`)
-  on episodes 0–3; all `--seed 1`.
-- Output file: `/opt/qvla/runs/E1c/` (not in the repo)
+- Command (`E=/opt/qvla/runs/E1c`):
+  ```bash
+  python scripts/sample_variants.py sample --liberoplus /opt/qvla/third_party/LIBERO-plus --vqb /opt/qvla/third_party/VLAQuantBench --seed 1 --episodes-per-task 4 --condition lighting --level 3 --out $E/lighting-L3-s1-4pt.json
+  RUN="python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 --benchmark libero_plus --seed 1"
+  LB="condition=lighting sample_file=$E/lighting-L3-s1-4pt.json"
+  for S in libero_spatial libero_object libero_goal; do
+    $RUN --suite $S --preset BASELINE --episodes-from 2 --bench-kwargs $LB --out $E/BF16-ep23-$S.jsonl
+    $RUN --suite $S --preset W4 --scope ve  --bench-kwargs $LB --out $E/VEW4-$S.jsonl
+    $RUN --suite $S --preset W8 --scope e2e --bench-kwargs $LB --out $E/W8-$S.jsonl
+  done
+  ```
+  BF16 episodes 0–1 are E1b's lighting files (same sampler seed, so the same variants).
+- Output file: `/opt/qvla/runs/E1c/`; repo copy `results/E1/E1c/`
 - Result: BF16 **75.8% (91/120)**. VE-W4 **75.0% (90/120)**: discordant 4 / 3 (5.8%).
   W8 **72.5% (87/120)**: discordant 7 / 3 (8.3%).
 - Notes: GPU noise alone flips 0/200 in env B (E1a rerun), so VE-W4 does change individual
