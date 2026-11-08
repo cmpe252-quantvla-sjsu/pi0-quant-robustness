@@ -1,4 +1,5 @@
-# QRP manifest for the core study (E2-E4). DRAFT until the design freeze.
+# QRP manifest for the core study (E2-E3). Frozen with configs/frozen_design.yaml (Nov 8).
+# The language condition (E4, H3) was dropped at the freeze: BF16 16.7% at level 1 (E1b).
 # Paths are relative to the repo root (run from there with --base-dir .):
 #   python scripts/qrp_bootstrap.py configs/qrp/study_manifest.yaml --base-dir . --out-md analysis/qrp.md
 # File layout follows results/README.md: results/<exp>/<condition>/<exp>-<setting>-<suite>.jsonl
@@ -13,7 +14,7 @@ planned_visual_shifts: [lighting, background, layout]   # pooled QRP is flagged 
 bootstrap_within: fixed         # primary: tasks only (decided Oct 30, see configs/frozen_design.yaml)
 sensitivity_within: resample    # also reported: proposal 7.1 as written
 sensitivity_covered_only: true  # also reported: tasks without fallback episodes only (decided Nov 4)
-subset_settings: [W8]           # W8 runs a subset of each shift; exempt from the per-condition episodes check
+subset_settings: [W8]           # W8 runs a subset of each shift (4/task); exempt from the episodes check in shifted conditions
 # Every cell must share hostname, GPU, VLAQuantBench commit, seed and benchmark (libero_plus =
 # environment B), and episodes per task within each condition; the script stops otherwise.
 # Never set allow_mixed_provenance here.
@@ -23,7 +24,6 @@ conditions:
   lighting:   {kind: visual}
   background: {kind: visual}
   layout:     {kind: visual}
-  language:   {kind: language}
 
 cells:
   clean:
@@ -35,7 +35,7 @@ cells:
     BF16:  results/E3/lighting/E3-BF16-*.jsonl
     VE-W4: results/E3/lighting/E3-VE-W4-*.jsonl
     W4:    results/E3/lighting/E3-W4-*.jsonl
-    W8:    results/E3/lighting/E3-W8-*.jsonl     # 100-episode subset, compared on its matched episodes
+    W8:    results/E3/lighting/E3-W8-*.jsonl     # 120-episode subset, compared on its matched episodes
   background:
     BF16:  results/E3/background/E3-BF16-*.jsonl
     VE-W4: results/E3/background/E3-VE-W4-*.jsonl
@@ -46,7 +46,3 @@ cells:
     VE-W4: results/E3/layout/E3-VE-W4-*.jsonl
     W4:    results/E3/layout/E3-W4-*.jsonl
     W8:    results/E3/layout/E3-W8-*.jsonl
-  language:
-    BF16:  results/E4/language/E4-BF16-*.jsonl
-    VE-W4: results/E4/language/E4-VE-W4-*.jsonl
-    W4:    results/E4/language/E4-W4-*.jsonl
