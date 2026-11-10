@@ -310,8 +310,8 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 ### 2026-11-08 · Design freeze (Amina and Smitha)
 - Freeze PR #10 (Amina, branch `amina/design-freeze`), reviewed and merged by Smitha; she
   regenerated the lighting core samples on the VM (byte-identical) and ran the tests.
-- Tag **`design-freeze`** on merge commit `05efb22` (2026-11-08 08:25 PT, created by Smitha).
-  No core run started before it; lighting BF16 started 09:47 PT.
+- Tag **`design-freeze`** on merge commit `05efb22` (PR merged 08:25 PT; tag created ~08:48 PT
+  by Smitha). No core run started before it; the first one (lighting BF16) started ~09:20 PT.
 - Frozen in `configs/frozen_design.yaml`: levels lighting L3, layout L3, background L1 (one level
   for all suites); 300 per shift (10/task), W8 120 (4/task, episodes 0–3 of the same sample),
   clean 20/task; sampler seed 0 and run seed 0; language dropped (H3 omitted, E4 not run,
