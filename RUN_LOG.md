@@ -315,6 +315,84 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 - Result: projected SE of the pooled VE-W4 QRP **≈ 1.2 pp at 300 per shift**, 1.1 pp at 450; ~1.7 pp if discordance doubles. Rule threshold 2.5 pp → **keep 300 per shift**. Details: `analysis/E1_power_update.md`.
 - Notes: clean VE-W4 discordance in env B is assumed equal to E1c; the released clean Spatial logs give 6.5%, close to it.
 
+### E2 · Clean grid: BF16, VE-W4, W4, W8 × Spatial/Object/Goal, environment B (Amina)
+- Date / who: 2026-11-08 22:01 PT – 2026-11-09 09:02 PT · Amina
+- Machine / env / commit: qvla-l4 · vqb_b · VLAQuantBench `qvla-patches` @ `c497a0d` · repo
+  `design-freeze-1-g4198e04` (code and configs identical to `design-freeze`:
+  `git diff --stat design-freeze -- quantvla scripts configs` empty)
+- Pre-flight: `nvidia-smi` no other process (GPU free after Smitha's lighting + background),
+  MuJoCo 3.3.2.
+- Command (in `/opt/qvla/pi0-quant-robustness`, inside tmux):
+  ```bash
+  R=/opt/qvla/runs/E2/clean; V=/opt/qvla/videos/E2/clean; mkdir -p $R
+  for SET in "BF16 BASELINE e2e" "VE-W4 W4 ve" "W4 W4 e2e" "W8 W8 e2e"; do set -- $SET
+    for S in spatial object goal; do
+      python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 \
+        --benchmark libero_plus --suite libero_$S --preset $2 --scope $3 --seed 0 --episodes 20 \
+        --bench-kwargs condition=clean --video-dir $V/$1 --out $R/E2-$1-$S.jsonl
+    done
+  done 2>&1 | tee -a $R/E2-log.txt
+  ```
+- Output files: `results/E2/clean/E2-<setting>-<suite>.jsonl` (12 files, copied from
+  `/opt/qvla/runs/E2/clean/`). Log `E2-log.txt` and videos (`/opt/qvla/videos/E2/clean/<setting>/`)
+  stay on the VM.
+- Result (success, 200 episodes per suite):
+
+  | Setting | Spatial | Object | Goal | Pooled | vs BF16: n10 / n01 (discordance) |
+  |---|---|---|---|---|---|
+  | BF16 | 75.5% | 90.5% | 82.5% | **82.8%** (497/600) | |
+  | VE-W4 | 75.5% | 91.0% | 82.5% | **83.0%** (498/600) | 11 / 12 (3.8%) |
+  | W8 | 72.5% | 91.5% | 83.0% | **82.3%** (494/600) | 20 / 17 (6.2%) |
+  | W4 | 69.0% | 91.0% | 81.5% | **80.5%** (483/600) | 59 / 45 (17.3%) |
+
+- Checks: every file has 200 episodes, 20 per task, no duplicate (task, episode); headers
+  identical in seed 0, `libero_plus`, `qvla-l4`, NVIDIA L4, `c497a0d`, `episodes_per_task` 20;
+  all episodes `condition: clean`. `quant_report`: BF16 0 layers; VE-W4 `ve` 162; W4 and W8
+  `ve` 162, `llm` 126, `ah` 131, `mp` 1.
+- Notes: BF16 Spatial 75.5% matches E0b (75.5%) and E1a (76.0%). VE-W4 gives the same outcome
+  and step count as BF16 in 393/600 episodes. Clean VE-W4 discordance 3.8%, below the 5.8% the
+  power update assumed, so its precision estimate was conservative. The `imageio_ffmpeg`
+  "resizing from (360, 360) to (368, 368)" warning concerns the saved videos only (padding for
+  the encoder), not the policy input.
+
+### E3-layout · Layout L3: BF16, VE-W4, W4 (300) + W8 subset (120), environment B (Amina)
+- Date / who: 2026-11-09 11:28–18:34 PT · Amina
+- Machine / env / commit: qvla-l4 · vqb_b · VLAQuantBench `qvla-patches` @ `c497a0d` · repo
+  `design-freeze-1-g4198e04` (code and configs identical to `design-freeze`, checked before E2)
+- Sample files: `configs/samples/core/layout-L3-s0.json` (10/task) and `layout-L3-s0-w8.json`
+  (4/task = episodes 0–3 of the same sample), sampler seed 0, frozen with the design.
+- Command (in `/opt/qvla/pi0-quant-robustness`, inside tmux, started right after E2):
+  ```bash
+  R=/opt/qvla/runs/E3/layout; V=/opt/qvla/videos/E3/layout; SF=configs/samples/core; mkdir -p $R
+  for SET in "BF16 BASELINE e2e layout-L3-s0" "VE-W4 W4 ve layout-L3-s0" "W4 W4 e2e layout-L3-s0" "W8 W8 e2e layout-L3-s0-w8"; do set -- $SET
+    for S in spatial object goal; do
+      python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 \
+        --benchmark libero_plus --suite libero_$S --preset $2 --scope $3 --seed 0 \
+        --bench-kwargs condition=layout sample_file=$SF/$4.json --video-dir $V/$1 --out $R/E3-$1-$S.jsonl
+    done
+  done 2>&1 | tee -a $R/E3-layout-log.txt
+  ```
+- Output files: `results/E3/layout/E3-<setting>-<suite>.jsonl` (12 files, copied from
+  `/opt/qvla/runs/E3/layout/`). Log `E3-layout-log.txt` and videos
+  (`/opt/qvla/videos/E3/layout/<setting>/`) stay on the VM.
+- Result (success; BF16, VE-W4, W4: 100 episodes per suite; W8: 40 per suite):
+
+  | Setting | Spatial | Object | Goal | Pooled | vs BF16 on the same episodes: n10 / n01 (discordance) |
+  |---|---|---|---|---|---|
+  | BF16 | 55.0% | 74.0% | 55.0% | **61.3%** (184/300) | |
+  | VE-W4 | 52.0% | 74.0% | 53.0% | **59.7%** (179/300) | 6 / 1 (2.3%) |
+  | W4 | 39.0% | 74.0% | 51.0% | **54.7%** (164/300) | 33 / 13 (15.3%) |
+  | W8 (subset) | 55.0% | 80.0% | 47.5% | **60.8%** (73/120; BF16 on the same 120: 73) | 2 / 2 (3.3%) |
+
+- Checks: every file has the expected episodes (100 or 40), 10 or 4 per task, no duplicate
+  (task, variant, episode), every episode matched to a BF16 episode; all episodes
+  `condition: layout`, `target_level` 3; fallback episodes only in Spatial task 6 and Object
+  task 4, as in the sampler output (cap 2 per suite). Headers identical in seed 0,
+  `libero_plus`, `qvla-l4`, NVIDIA L4, `c497a0d`; `episodes_per_task` 10 (W8: 4);
+  `quant_report` as in E2. No errors in the log.
+- Notes: BF16 61.3% is close to the E1 pilot (63.3%) and inside the 40–85% target. These are
+  raw rates; the QRP and its interval come from `qrp_bootstrap.py` on the full grid.
+
 ---
 
 ## Decisions
@@ -338,3 +416,19 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 ### 2026-11-06 · E1 difficulty levels (Smitha and Amina)
 - Lighting L3, layout L3, background L1: one level for all suites (difficulty_rule step 1).
 - E1 runs used sampler seed 1 and run seed 1; core runs use 0 for both.
+
+### 2026-11-08 · Design freeze (Amina and Smitha)
+- Freeze PR #10 (Amina, branch `amina/design-freeze`), reviewed and merged by Smitha; she
+  regenerated the lighting core samples on the VM (byte-identical) and ran the tests.
+- Tag **`design-freeze`** on merge commit `05efb22` (PR merged 08:25 PT; tag created ~08:48 PT
+  by Smitha). No core run started before it; the first one (lighting BF16) started ~09:20 PT.
+- Frozen in `configs/frozen_design.yaml`: levels lighting L3, layout L3, background L1 (one level
+  for all suites); 300 per shift (10/task), W8 120 (4/task, episodes 0–3 of the same sample),
+  clean 20/task; sampler seed 0 and run seed 0; language dropped (H3 omitted, E4 not run,
+  Holm m = 4); core split Amina E2 + layout, Smitha lighting + background; env lock
+  `configs/env_b.lock.txt`.
+- Core sample files in `configs/samples/core/` (sampler seed 0). Every `-w8` file equals
+  episodes 0–3 of its 10/task file (checked for all three shifts).
+- Core runs also save videos with `--video-dir` (`/opt/qvla/videos/E2/clean/<setting>/`,
+  `/opt/qvla/videos/E3/<condition>/<setting>/`), needed for E5.
+- From here on, any change to the frozen design is logged here as a deviation.
