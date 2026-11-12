@@ -323,6 +323,44 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   "resizing from (360, 360) to (368, 368)" warning concerns the saved videos only (padding for
   the encoder), not the policy input.
 
+### E3-layout · Layout L3: BF16, VE-W4, W4 (300) + W8 subset (120), environment B (Amina)
+- Date / who: 2026-11-09 11:28–18:34 PT · Amina
+- Machine / env / commit: qvla-l4 · vqb_b · VLAQuantBench `qvla-patches` @ `c497a0d` · repo
+  `design-freeze-1-g4198e04` (code and configs identical to `design-freeze`, checked before E2)
+- Sample files: `configs/samples/core/layout-L3-s0.json` (10/task) and `layout-L3-s0-w8.json`
+  (4/task = episodes 0–3 of the same sample), sampler seed 0, frozen with the design.
+- Command (in `/opt/qvla/pi0-quant-robustness`, inside tmux, started right after E2):
+  ```bash
+  R=/opt/qvla/runs/E3/layout; V=/opt/qvla/videos/E3/layout; SF=configs/samples/core; mkdir -p $R
+  for SET in "BF16 BASELINE e2e layout-L3-s0" "VE-W4 W4 ve layout-L3-s0" "W4 W4 e2e layout-L3-s0" "W8 W8 e2e layout-L3-s0-w8"; do set -- $SET
+    for S in spatial object goal; do
+      python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 \
+        --benchmark libero_plus --suite libero_$S --preset $2 --scope $3 --seed 0 \
+        --bench-kwargs condition=layout sample_file=$SF/$4.json --video-dir $V/$1 --out $R/E3-$1-$S.jsonl
+    done
+  done 2>&1 | tee -a $R/E3-layout-log.txt
+  ```
+- Output files: `results/E3/layout/E3-<setting>-<suite>.jsonl` (12 files, copied from
+  `/opt/qvla/runs/E3/layout/`). Log `E3-layout-log.txt` and videos
+  (`/opt/qvla/videos/E3/layout/<setting>/`) stay on the VM.
+- Result (success; BF16, VE-W4, W4: 100 episodes per suite; W8: 40 per suite):
+
+  | Setting | Spatial | Object | Goal | Pooled | vs BF16 on the same episodes: n10 / n01 (discordance) |
+  |---|---|---|---|---|---|
+  | BF16 | 55.0% | 74.0% | 55.0% | **61.3%** (184/300) | |
+  | VE-W4 | 52.0% | 74.0% | 53.0% | **59.7%** (179/300) | 6 / 1 (2.3%) |
+  | W4 | 39.0% | 74.0% | 51.0% | **54.7%** (164/300) | 33 / 13 (15.3%) |
+  | W8 (subset) | 55.0% | 80.0% | 47.5% | **60.8%** (73/120; BF16 on the same 120: 73) | 2 / 2 (3.3%) |
+
+- Checks: every file has the expected episodes (100 or 40), 10 or 4 per task, no duplicate
+  (task, variant, episode), every episode matched to a BF16 episode; all episodes
+  `condition: layout`, `target_level` 3; fallback episodes only in Spatial task 6 and Object
+  task 4, as in the sampler output (cap 2 per suite). Headers identical in seed 0,
+  `libero_plus`, `qvla-l4`, NVIDIA L4, `c497a0d`; `episodes_per_task` 10 (W8: 4);
+  `quant_report` as in E2. No errors in the log.
+- Notes: BF16 61.3% is close to the E1 pilot (63.3%) and inside the 40–85% target. These are
+  raw rates; the QRP and its interval come from `qrp_bootstrap.py` on the full grid.
+
 ---
 
 ## Decisions
