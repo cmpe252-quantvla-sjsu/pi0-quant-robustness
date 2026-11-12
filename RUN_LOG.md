@@ -283,6 +283,46 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 - Result: projected SE of the pooled VE-W4 QRP **≈ 1.2 pp at 300 per shift**, 1.1 pp at 450; ~1.7 pp if discordance doubles. Rule threshold 2.5 pp → **keep 300 per shift**. Details: `analysis/E1_power_update.md`.
 - Notes: clean VE-W4 discordance in env B is assumed equal to E1c; the released clean Spatial logs give 6.5%, close to it.
 
+### E2 · Clean grid: BF16, VE-W4, W4, W8 × Spatial/Object/Goal, environment B (Amina)
+- Date / who: 2026-11-08 22:01 PT – 2026-11-09 09:02 PT · Amina
+- Machine / env / commit: qvla-l4 · vqb_b · VLAQuantBench `qvla-patches` @ `c497a0d` · repo
+  `design-freeze-1-g4198e04` (code and configs identical to `design-freeze`:
+  `git diff --stat design-freeze -- quantvla scripts configs` empty)
+- Pre-flight: `nvidia-smi` no other process (GPU free after Smitha's lighting + background),
+  MuJoCo 3.3.2.
+- Command (in `/opt/qvla/pi0-quant-robustness`, inside tmux):
+  ```bash
+  R=/opt/qvla/runs/E2/clean; V=/opt/qvla/videos/E2/clean; mkdir -p $R
+  for SET in "BF16 BASELINE e2e" "VE-W4 W4 ve" "W4 W4 e2e" "W8 W8 e2e"; do set -- $SET
+    for S in spatial object goal; do
+      python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 \
+        --benchmark libero_plus --suite libero_$S --preset $2 --scope $3 --seed 0 --episodes 20 \
+        --bench-kwargs condition=clean --video-dir $V/$1 --out $R/E2-$1-$S.jsonl
+    done
+  done 2>&1 | tee -a $R/E2-log.txt
+  ```
+- Output files: `results/E2/clean/E2-<setting>-<suite>.jsonl` (12 files, copied from
+  `/opt/qvla/runs/E2/clean/`). Log `E2-log.txt` and videos (`/opt/qvla/videos/E2/clean/<setting>/`)
+  stay on the VM.
+- Result (success, 200 episodes per suite):
+
+  | Setting | Spatial | Object | Goal | Pooled | vs BF16: n10 / n01 (discordance) |
+  |---|---|---|---|---|---|
+  | BF16 | 75.5% | 90.5% | 82.5% | **82.8%** (497/600) | |
+  | VE-W4 | 75.5% | 91.0% | 82.5% | **83.0%** (498/600) | 11 / 12 (3.8%) |
+  | W8 | 72.5% | 91.5% | 83.0% | **82.3%** (494/600) | 20 / 17 (6.2%) |
+  | W4 | 69.0% | 91.0% | 81.5% | **80.5%** (483/600) | 59 / 45 (17.3%) |
+
+- Checks: every file has 200 episodes, 20 per task, no duplicate (task, episode); headers
+  identical in seed 0, `libero_plus`, `qvla-l4`, NVIDIA L4, `c497a0d`, `episodes_per_task` 20;
+  all episodes `condition: clean`. `quant_report`: BF16 0 layers; VE-W4 `ve` 162; W4 and W8
+  `ve` 162, `llm` 126, `ah` 131, `mp` 1.
+- Notes: BF16 Spatial 75.5% matches E0b (75.5%) and E1a (76.0%). VE-W4 gives the same outcome
+  and step count as BF16 in 393/600 episodes. Clean VE-W4 discordance 3.8%, below the 5.8% the
+  power update assumed, so its precision estimate was conservative. The `imageio_ffmpeg`
+  "resizing from (360, 360) to (368, 368)" warning concerns the saved videos only (padding for
+  the encoder), not the policy input.
+
 ---
 
 ## Decisions
