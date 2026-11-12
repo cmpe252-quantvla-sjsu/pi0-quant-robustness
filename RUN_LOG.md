@@ -145,38 +145,6 @@ down here before trying to explain it.
 
 Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 
-### E3 · Lighting L3 and background L1, environment B (core)
-- Date / who: 2026-11-08, ~09:20–20:30 PT · Smitha
-- Machine / env / commit: qvla-l4 · vqb_b · VLAQuantBench `qvla-patches` @ `c497a0d` · repo main @ `05efb22` (tag `design-freeze`)
-- Command (in `/opt/qvla/pi0-quant-robustness`):
-  ```bash
-  RUN="python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 --benchmark libero_plus --seed 0"
-  for C in lighting-L3 background-L1; do
-    COND=${C%-*}; OUT=results/E3/$COND; mkdir -p $OUT
-    for S in libero_spatial libero_object libero_goal; do
-      for SET in "BF16 --preset BASELINE --scope e2e" "VE-W4 --preset W4 --scope ve" "W4 --preset W4 --scope e2e"; do
-        set -- $SET; NAME=$1; shift
-        $RUN --suite $S "$@" --bench-kwargs condition=$COND sample_file=configs/samples/core/$C-s0.json \
-          --video-dir /opt/qvla/videos/E3/$COND/$NAME --out $OUT/E3-$NAME-$S.jsonl
-      done
-      $RUN --suite $S --preset W8 --scope e2e --bench-kwargs condition=$COND sample_file=configs/samples/core/$C-s0-w8.json \
-        --video-dir /opt/qvla/videos/E3/$COND/W8 --out $OUT/E3-W8-$S.jsonl
-    done
-  done
-  ```
-- Output file: `results/E3/lighting/`, `results/E3/background/` (24 files). Videos: `/opt/qvla/videos/E3/<condition>/<setting>/` (2,040, 184 MB, kept for E5).
-- Result (pooled over 3 suites; descriptive only, QRP needs the clean grid):
-
-  | Setting | Lighting L3 | Background L1 |
-  |---|---|---|
-  | BF16 | 72.3% (217/300) | 79.3% (238/300) |
-  | VE-W4 | 71.3% (214/300) | 79.7% (239/300) |
-  | W4 | 66.0% (198/300) | 77.7% (233/300) |
-  | W8 (episodes 0–3) | 70.0% (84/120) | 75.8% (91/120) |
-
-- Checks: 100 episodes in every BF16 / VE-W4 / W4 file and 40 in every W8 file; one video per episode (300 / 120 per folder, none overwritten); no errors. BF16 close to E1 (lighting 75.8%, background 80.8%).
-- Deviations / notes: none.
-
 **Comparisons** (`parity_check.py rollouts`)
 
 | Comparison | Same success and steps | Same success | Flips (n10 / n01) | Paired gap, 95% CI |
@@ -392,6 +360,57 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   `quant_report` as in E2. No errors in the log.
 - Notes: BF16 61.3% is close to the E1 pilot (63.3%) and inside the 40–85% target. These are
   raw rates; the QRP and its interval come from `qrp_bootstrap.py` on the full grid.
+
+### E3-lighting-background · Lighting L3 and background L1: BF16, VE-W4, W4 (300) + W8 subset (120), environment B (Smitha)
+- Date / who: 2026-11-08, ~09:20–20:30 PT · Smitha
+- Machine / env / commit: qvla-l4 · vqb_b · VLAQuantBench `qvla-patches` @ `c497a0d` · repo main @ `05efb22` (tag `design-freeze`)
+- Sample files: `configs/samples/core/lighting-L3-s0.json`, `background-L1-s0.json` (10/task) and
+  their `-w8` files (4/task = episodes 0–3 of the same sample), sampler seed 0, frozen with the design.
+- Command (in `/opt/qvla/pi0-quant-robustness`, inside tmux):
+  ```bash
+  RUN="python -m quantvla.cli run --model pi0 --checkpoint lerobot/pi0_libero_finetuned_v044 --benchmark libero_plus --seed 0"
+  for C in lighting-L3 background-L1; do
+    COND=${C%-*}; OUT=results/E3/$COND; mkdir -p $OUT
+    for S in libero_spatial libero_object libero_goal; do
+      for SET in "BF16 --preset BASELINE --scope e2e" "VE-W4 --preset W4 --scope ve" "W4 --preset W4 --scope e2e"; do
+        set -- $SET; NAME=$1; shift
+        $RUN --suite $S "$@" --bench-kwargs condition=$COND sample_file=configs/samples/core/$C-s0.json \
+          --video-dir /opt/qvla/videos/E3/$COND/$NAME --out $OUT/E3-$NAME-$S.jsonl
+      done
+      $RUN --suite $S --preset W8 --scope e2e --bench-kwargs condition=$COND sample_file=configs/samples/core/$C-s0-w8.json \
+        --video-dir /opt/qvla/videos/E3/$COND/W8 --out $OUT/E3-W8-$S.jsonl
+    done
+  done
+  ```
+- Output files: `results/E3/lighting/` and `results/E3/background/`, `E3-<setting>-<suite>.jsonl`
+  (24 files). Videos: `/opt/qvla/videos/E3/<condition>/<setting>/` (2,040, 184 MB, kept for E5).
+- Result (success; BF16, VE-W4, W4: 100 episodes per suite; W8: 40 per suite):
+
+  **Lighting L3**
+
+  | Setting | Spatial | Object | Goal | Pooled | vs BF16 on the same episodes: n10 / n01 (discordance) |
+  |---|---|---|---|---|---|
+  | BF16 | 66.0% | 83.0% | 68.0% | **72.3%** (217/300) | |
+  | VE-W4 | 65.0% | 81.0% | 68.0% | **71.3%** (214/300) | 6 / 3 (3.0%) |
+  | W4 | 55.0% | 74.0% | 69.0% | **66.0%** (198/300) | 39 / 20 (19.7%) |
+  | W8 (subset) | 62.5% | 80.0% | 67.5% | **70.0%** (84/120; BF16 on the same 120: 84) | 3 / 3 (5.0%) |
+
+  **Background L1**
+
+  | Setting | Spatial | Object | Goal | Pooled | vs BF16 on the same episodes: n10 / n01 (discordance) |
+  |---|---|---|---|---|---|
+  | BF16 | 71.0% | 88.0% | 79.0% | **79.3%** (238/300) | |
+  | VE-W4 | 72.0% | 89.0% | 78.0% | **79.7%** (239/300) | 8 / 9 (5.7%) |
+  | W4 | 65.0% | 89.0% | 79.0% | **77.7%** (233/300) | 28 / 23 (17.0%) |
+  | W8 (subset) | 65.0% | 90.0% | 72.5% | **75.8%** (91/120; BF16 on the same 120: 92) | 3 / 2 (4.2%) |
+
+- Checks: every BF16 / VE-W4 / W4 file has 100 episodes and every W8 file 40; every episode
+  matched to a BF16 episode; headers identical in seed 0, `libero_plus`, `qvla-l4`, NVIDIA L4,
+  `c497a0d`; one video per episode (300 / 120 per folder, none overwritten); no errors.
+  BF16 close to the E1 pilot (lighting 75.8%, background 80.8%).
+- Deviations / notes: the runs wrote `E3-<setting>-libero_<suite>.jsonl`; renamed to
+  `E3-<setting>-<suite>.jsonl` (results/README naming) before merging, contents unchanged.
+  Raw rates only; the QRP and its interval come from `qrp_bootstrap.py` on the full grid.
 
 ---
 
