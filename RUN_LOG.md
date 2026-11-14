@@ -433,8 +433,8 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   conditions). Sensitivity analyses agree with the primary decision: two-stage bootstrap
   (proposal 7.1) +0.9 [−2.1, +3.8]; tasks without fallback episodes only +1.3 [−1.2, +3.6].
 - Notes: the observed SE of the pooled VE-W4 QRP (1.16 pp) matches the E1 power update's
-  projection (1.17 pp). Smitha reproduces this run independently from the same commit
-  (command only, results not shared before her run).
+  projection (1.17 pp). **Independently reproduced** by Smitha on 2026-11-13 from the same
+  commit (command only, results not shared before her run): all numbers identical.
 
 
 ---
