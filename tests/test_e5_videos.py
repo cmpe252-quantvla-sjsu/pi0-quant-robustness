@@ -25,8 +25,8 @@ def write(path, outcomes):
     lines = [json.dumps({"kind": "header"})]
     for (t, e), ok in outcomes.items():
         lines.append(json.dumps({"kind": "episode", "suite": SUITE, "task_id": t, "episode": e, "success": bool(ok),
-                                 "extra": {"variant_id": None, "instruction": f"task {t}"}}))
-    path.write_text("\n".join(lines) + "\n")
+                                 "extra": {"variant_id": None, "instruction": f"put the bowl on the plate — task {t}"}}))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def fake(tmp_path, n_w4_each=5):
@@ -55,7 +55,8 @@ def run_sample(base, videos, man, out, **kw):
     args = ["sample", "--manifest", str(man), "--base-dir", str(base), "--videos", str(videos), "--out", str(out),
             "--shared", "4"] + [x for k, v in kw.items() for x in (f"--{k.replace('_', '-')}", str(v))]
     e5.main(args)
-    return list(csv.DictReader(open(out / "coding_sheet.csv"))), list(csv.DictReader(open(out / "key/key.csv")))
+    return (list(csv.DictReader(open(out / "coding_sheet.csv", newline="", encoding="utf-8"))),
+            list(csv.DictReader(open(out / "key/key.csv", newline="", encoding="utf-8"))))
 
 
 def test_all_ve_w4_pairs_and_capped_w4_pairs_one_video_each(tmp_path):
@@ -102,13 +103,13 @@ def test_report_needs_final_codes_and_counts_per_pair(tmp_path, capsys):
     sheet[0]["code_B"] = "drop"                  # lower case is accepted
     if sheet[0]["assigned"] == "both":
         sheet[0]["final_code"] = ""
-    with open(out / "coding_sheet.csv", "w", newline="") as fh:
+    with open(out / "coding_sheet.csv", "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, e5.SHEET_FIELDS); w.writeheader(); w.writerows(sheet)
     if sheet[0]["assigned"] == "both":
         with pytest.raises(SystemExit, match="no final code"):
             e5.main(["report", "--out", str(out), "--codebook", codebook(tmp_path)])
         sheet[0]["final_code"] = "TIMEOUT"
-        with open(out / "coding_sheet.csv", "w", newline="") as fh:
+        with open(out / "coding_sheet.csv", "w", newline="", encoding="utf-8") as fh:
             w = csv.DictWriter(fh, e5.SHEET_FIELDS); w.writeheader(); w.writerows(sheet)
     e5.main(["report", "--out", str(out), "--md", str(tmp_path / "r.md"), "--codebook", codebook(tmp_path)])
     md = (tmp_path / "r.md").read_text()
@@ -117,7 +118,7 @@ def test_report_needs_final_codes_and_counts_per_pair(tmp_path, capsys):
 
 def test_unknown_code_is_refused(tmp_path):
     p = tmp_path / "s.csv"
-    with open(p, "w", newline="") as fh:
+    with open(p, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, e5.SHEET_FIELDS); w.writeheader()
         w.writerow({"video_id": "v1", "assigned": "A", "code_A": "SLIP"})
     with pytest.raises(SystemExit, match="not a codebook code"):
@@ -130,3 +131,32 @@ def test_codes_come_from_the_codebook_table(tmp_path):
     empty.write_text("# nothing yet\n")
     with pytest.raises(SystemExit, match="no codes found"):
         e5.codebook_codes(str(empty))
+
+
+def test_copies_do_not_keep_the_original_timestamps(tmp_path):
+    """Settings ran one after another, so original timestamps would reveal the setting."""
+    import os
+    base, videos, man = fake(tmp_path)
+    for f in videos.rglob("*.mp4"):
+        os.utime(f, (1_000_000_000, 1_000_000_000))      # 2001
+    run_sample(base, videos, man, tmp_path / "e5", w4_per_direction=3)
+    assert all(f.stat().st_mtime > 1_500_000_000 for f in (tmp_path / "e5/videos").iterdir())
+
+
+def test_dry_run_and_missing_videos_write_nothing(tmp_path):
+    base, videos, man = fake(tmp_path)
+    out = tmp_path / "e5"
+    e5.main(["sample", "--manifest", str(man), "--base-dir", str(base), "--videos", str(videos),
+             "--out", str(out), "--dry-run"])
+    assert not out.exists()
+    next(videos.rglob("*_fail.mp4")).unlink()
+    with pytest.raises(SystemExit):
+        e5.main(["sample", "--manifest", str(man), "--base-dir", str(base), "--videos", str(videos),
+                 "--out", str(out)])
+    assert not out.exists()
+    # after a dry run, the real run still works without --force
+    fake(tmp_path / "again")
+    b2, v2, m2 = tmp_path / "again/repo", tmp_path / "again/videos", tmp_path / "again/repo/manifest.yaml"
+    e5.main(["sample", "--manifest", str(m2), "--base-dir", str(b2), "--videos", str(v2), "--out", str(out), "--dry-run"])
+    sheet, _ = run_sample(b2, v2, m2, out, w4_per_direction=3)
+    assert sheet and "—" in sheet[0]["instruction"]        # non-ASCII text survives (utf-8)

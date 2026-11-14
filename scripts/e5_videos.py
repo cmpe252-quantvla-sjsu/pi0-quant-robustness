@@ -61,7 +61,7 @@ def load(pattern: str, base: Path) -> dict:
     if not files:
         raise SystemExit(f"no files match {pattern}")
     for f in files:
-        for line in open(f):
+        for line in open(f, encoding="utf-8"):
             d = json.loads(line)
             if d.get("kind") != "episode":
                 continue
@@ -120,7 +120,7 @@ def select(pairs: list[dict], w4_per_direction: int, seed: int) -> list[dict]:
 
 
 def cmd_sample(a):
-    manifest = yaml.safe_load(open(a.manifest))
+    manifest = yaml.safe_load(open(a.manifest, encoding="utf-8"))
     pairs = find_pairs(manifest, Path(a.base_dir), ["VE-W4", "W4"] if a.w4_per_direction else ["VE-W4"])
     chosen = select(pairs, a.w4_per_direction, a.seed)
     for p in chosen:
@@ -137,46 +137,51 @@ def cmd_sample(a):
             ids[sources[len(ids)]] = vid
 
     out = Path(a.out)
+    order = list(range(len(sources)))
+    shared = set(rng.sample(order, min(a.shared, len(order))))
+    rest = [i for i in order if i not in shared]
+    per = Counter((p["condition"], p["pair_setting"], p["direction"]) for p in chosen)
+    print(f"{len(sources)} videos ({len(shared)} shared) for {len(chosen)} selected pairs, from {len(pairs)} discordant pairs")
+    for k in sorted(per):
+        print(f"  {k[0]:11s} {k[1]:6s} {k[2]:16s} {per[k]}")
+
+    # check everything before writing anything, so a dry run or a missing video leaves no files
+    missing = [src for src in sources if not Path(src).exists()]
+    if missing:
+        print(f"MISSING {len(missing)} videos, e.g. {missing[0]}; nothing written", file=sys.stderr)
+        sys.exit(1)
+    if a.dry_run:
+        print("dry run: all videos found; nothing written")
+        return
     if (out / "coding_sheet.csv").exists() and not a.force:
         raise SystemExit(f"{out}/coding_sheet.csv exists; never resample after coding starts (use --force only before)")
     (out / "videos").mkdir(parents=True, exist_ok=True)
     (out / "key").mkdir(parents=True, exist_ok=True)
-    order = list(range(len(sources)))
-    shared = set(rng.sample(order, min(a.shared, len(order))))
-    rest = [i for i in order if i not in shared]
 
-    missing, sheet, key = [], [], []
+    sheet, key = [], []
     instr = {p["source"]: p["instruction"] for p in chosen}
     for i, src in enumerate(sources):
         vid = ids[src]
-        if not Path(src).exists():
-            missing.append(src)
-        elif not a.dry_run:
-            shutil.copy2(src, out / "videos" / f"{vid}.mp4")
+        # copyfile, not copy2: copy2 keeps the original timestamps, and since the settings were
+        # run one after another, those would reveal which setting a video came from
+        shutil.copyfile(src, out / "videos" / f"{vid}.mp4")
         assigned = "both" if i in shared else CODERS[rest.index(i) % 2]
         sheet.append({"video_id": vid, "instruction": instr[src], "assigned": assigned})
     for p in chosen:
         key.append({"video_id": ids[p["source"]], **{k: p[k] for k in KEY_FIELDS if k in p}})
 
-    with open(out / "coding_sheet.csv", "w", newline="") as fh:
+    with open(out / "coding_sheet.csv", "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, SHEET_FIELDS); w.writeheader()
         for r in sorted(sheet, key=lambda r: r["video_id"]):
             w.writerow(r)
-    with open(out / "key" / "key.csv", "w", newline="") as fh:
+    with open(out / "key" / "key.csv", "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, KEY_FIELDS); w.writeheader(); w.writerows(key)
 
-    per = Counter((p["condition"], p["pair_setting"], p["direction"]) for p in chosen)
-    print(f"{len(sources)} videos ({len(shared)} shared) for {len(chosen)} selected pairs, from {len(pairs)} discordant pairs")
-    for k in sorted(per):
-        print(f"  {k[0]:11s} {k[1]:6s} {k[2]:16s} {per[k]}")
     print(f"coding sheet: {out/'coding_sheet.csv'}   key (do not open): {out/'key'/'key.csv'}")
-    if missing:
-        print(f"MISSING {len(missing)} videos, e.g. {missing[0]}", file=sys.stderr)
-        sys.exit(1)
 
 
 def read_sheet(path, codes):
-    rows = list(csv.DictReader(open(path)))
+    rows = list(csv.DictReader(open(path, newline="", encoding="utf-8")))
     for r in rows:
         for c in ("code_A", "code_B", "final_code"):
             v = (r.get(c) or "").strip().upper()
@@ -221,7 +226,7 @@ def cmd_report(a):
     out = Path(a.out)
     codes = codebook_codes(a.codebook)
     rows = {r["video_id"]: r for r in read_sheet(out / "coding_sheet.csv", codes)}
-    key = {r["video_id"]: r for r in csv.DictReader(open(out / "key" / "key.csv"))}
+    key = {r["video_id"]: r for r in csv.DictReader(open(out / "key" / "key.csv", newline="", encoding="utf-8"))}
     open_rows = [v for v, r in rows.items() if not final(r)]
     if open_rows:
         raise SystemExit(f"{len(open_rows)} videos have no final code yet (e.g. {open_rows[0]}); "
