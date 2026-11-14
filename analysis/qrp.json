@@ -1,0 +1,1491 @@
+{
+  "config": {
+    "B": 10000,
+    "seed": 0,
+    "bootstrap_within": "fixed",
+    "threshold_pp": 5.0,
+    "baseline": "BF16",
+    "primary": "VE-W4",
+    "clean": "clean",
+    "visual": [
+      "lighting",
+      "background",
+      "layout"
+    ],
+    "language": [],
+    "planned_visual_shifts": [
+      "lighting",
+      "background",
+      "layout"
+    ],
+    "covered_only": false
+  },
+  "covered_tasks": {},
+  "headers": [
+    {
+      "condition": "clean",
+      "setting": "BF16",
+      "path": "results\\E2\\clean\\E2-BF16-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "BASELINE",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 20
+    },
+    {
+      "condition": "clean",
+      "setting": "BF16",
+      "path": "results\\E2\\clean\\E2-BF16-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "BASELINE",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 20
+    },
+    {
+      "condition": "clean",
+      "setting": "BF16",
+      "path": "results\\E2\\clean\\E2-BF16-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "BASELINE",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 20
+    },
+    {
+      "condition": "clean",
+      "setting": "VE-W4",
+      "path": "results\\E2\\clean\\E2-VE-W4-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "W4",
+      "scope": "ve",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 20
+    },
+    {
+      "condition": "clean",
+      "setting": "VE-W4",
+      "path": "results\\E2\\clean\\E2-VE-W4-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "W4",
+      "scope": "ve",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 20
+    },
+    {
+      "condition": "clean",
+      "setting": "VE-W4",
+      "path": "results\\E2\\clean\\E2-VE-W4-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "W4",
+      "scope": "ve",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 20
+    },
+    {
+      "condition": "clean",
+      "setting": "W4",
+      "path": "results\\E2\\clean\\E2-W4-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "W4",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 20
+    },
+    {
+      "condition": "clean",
+      "setting": "W4",
+      "path": "results\\E2\\clean\\E2-W4-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "W4",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 20
+    },
+    {
+      "condition": "clean",
+      "setting": "W4",
+      "path": "results\\E2\\clean\\E2-W4-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "W4",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 20
+    },
+    {
+      "condition": "clean",
+      "setting": "W8",
+      "path": "results\\E2\\clean\\E2-W8-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "W8",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 20
+    },
+    {
+      "condition": "clean",
+      "setting": "W8",
+      "path": "results\\E2\\clean\\E2-W8-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "W8",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 20
+    },
+    {
+      "condition": "clean",
+      "setting": "W8",
+      "path": "results\\E2\\clean\\E2-W8-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "W8",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 20
+    },
+    {
+      "condition": "lighting",
+      "setting": "BF16",
+      "path": "results\\E3\\lighting\\E3-BF16-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "BASELINE",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "lighting",
+      "setting": "BF16",
+      "path": "results\\E3\\lighting\\E3-BF16-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "BASELINE",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "lighting",
+      "setting": "BF16",
+      "path": "results\\E3\\lighting\\E3-BF16-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "BASELINE",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "lighting",
+      "setting": "VE-W4",
+      "path": "results\\E3\\lighting\\E3-VE-W4-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "W4",
+      "scope": "ve",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "lighting",
+      "setting": "VE-W4",
+      "path": "results\\E3\\lighting\\E3-VE-W4-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "W4",
+      "scope": "ve",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "lighting",
+      "setting": "VE-W4",
+      "path": "results\\E3\\lighting\\E3-VE-W4-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "W4",
+      "scope": "ve",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "lighting",
+      "setting": "W4",
+      "path": "results\\E3\\lighting\\E3-W4-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "W4",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "lighting",
+      "setting": "W4",
+      "path": "results\\E3\\lighting\\E3-W4-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "W4",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "lighting",
+      "setting": "W4",
+      "path": "results\\E3\\lighting\\E3-W4-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "W4",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "lighting",
+      "setting": "W8",
+      "path": "results\\E3\\lighting\\E3-W8-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "W8",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 4
+    },
+    {
+      "condition": "lighting",
+      "setting": "W8",
+      "path": "results\\E3\\lighting\\E3-W8-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "W8",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 4
+    },
+    {
+      "condition": "lighting",
+      "setting": "W8",
+      "path": "results\\E3\\lighting\\E3-W8-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "W8",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 4
+    },
+    {
+      "condition": "background",
+      "setting": "BF16",
+      "path": "results\\E3\\background\\E3-BF16-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "BASELINE",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "background",
+      "setting": "BF16",
+      "path": "results\\E3\\background\\E3-BF16-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "BASELINE",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "background",
+      "setting": "BF16",
+      "path": "results\\E3\\background\\E3-BF16-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "BASELINE",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "background",
+      "setting": "VE-W4",
+      "path": "results\\E3\\background\\E3-VE-W4-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "W4",
+      "scope": "ve",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "background",
+      "setting": "VE-W4",
+      "path": "results\\E3\\background\\E3-VE-W4-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "W4",
+      "scope": "ve",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "background",
+      "setting": "VE-W4",
+      "path": "results\\E3\\background\\E3-VE-W4-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "W4",
+      "scope": "ve",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "background",
+      "setting": "W4",
+      "path": "results\\E3\\background\\E3-W4-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "W4",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "background",
+      "setting": "W4",
+      "path": "results\\E3\\background\\E3-W4-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "W4",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "background",
+      "setting": "W4",
+      "path": "results\\E3\\background\\E3-W4-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "W4",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "background",
+      "setting": "W8",
+      "path": "results\\E3\\background\\E3-W8-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "W8",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 4
+    },
+    {
+      "condition": "background",
+      "setting": "W8",
+      "path": "results\\E3\\background\\E3-W8-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "W8",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 4
+    },
+    {
+      "condition": "background",
+      "setting": "W8",
+      "path": "results\\E3\\background\\E3-W8-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "W8",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 4
+    },
+    {
+      "condition": "layout",
+      "setting": "BF16",
+      "path": "results\\E3\\layout\\E3-BF16-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "BASELINE",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "layout",
+      "setting": "BF16",
+      "path": "results\\E3\\layout\\E3-BF16-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "BASELINE",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "layout",
+      "setting": "BF16",
+      "path": "results\\E3\\layout\\E3-BF16-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "BASELINE",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "layout",
+      "setting": "VE-W4",
+      "path": "results\\E3\\layout\\E3-VE-W4-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "W4",
+      "scope": "ve",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "layout",
+      "setting": "VE-W4",
+      "path": "results\\E3\\layout\\E3-VE-W4-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "W4",
+      "scope": "ve",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "layout",
+      "setting": "VE-W4",
+      "path": "results\\E3\\layout\\E3-VE-W4-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "W4",
+      "scope": "ve",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "layout",
+      "setting": "W4",
+      "path": "results\\E3\\layout\\E3-W4-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "W4",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "layout",
+      "setting": "W4",
+      "path": "results\\E3\\layout\\E3-W4-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "W4",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "layout",
+      "setting": "W4",
+      "path": "results\\E3\\layout\\E3-W4-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "W4",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 10
+    },
+    {
+      "condition": "layout",
+      "setting": "W8",
+      "path": "results\\E3\\layout\\E3-W8-goal.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_goal",
+      "preset": "W8",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 4
+    },
+    {
+      "condition": "layout",
+      "setting": "W8",
+      "path": "results\\E3\\layout\\E3-W8-object.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_object",
+      "preset": "W8",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 4
+    },
+    {
+      "condition": "layout",
+      "setting": "W8",
+      "path": "results\\E3\\layout\\E3-W8-spatial.jsonl",
+      "checkpoint": "lerobot/pi0_libero_finetuned_v044",
+      "suite": "libero_spatial",
+      "preset": "W8",
+      "scope": "e2e",
+      "hostname": "qvla-l4",
+      "gpu": "NVIDIA L4",
+      "vqb_commit": "c497a0d",
+      "seed": 0,
+      "benchmark": "libero_plus",
+      "episodes_per_task": 4
+    }
+  ],
+  "warnings": [],
+  "descriptive": [
+    {
+      "condition": "background",
+      "setting": "BF16",
+      "n": 300,
+      "sr": 79.33333333333333,
+      "wilson_low": 74.3944983244025,
+      "wilson_high": 83.53044736375746,
+      "mean_steps_successful": 117.50840336134453
+    },
+    {
+      "condition": "background",
+      "setting": "VE-W4",
+      "n": 300,
+      "sr": 79.66666666666667,
+      "wilson_low": 74.75056887150939,
+      "wilson_high": 83.8326148358342,
+      "mean_steps_successful": 118.1673640167364
+    },
+    {
+      "condition": "background",
+      "setting": "W4",
+      "n": 300,
+      "sr": 77.66666666666667,
+      "wilson_low": 72.62089140024803,
+      "wilson_high": 82.01286419199376,
+      "mean_steps_successful": 123.65665236051503
+    },
+    {
+      "condition": "background",
+      "setting": "W8",
+      "n": 120,
+      "sr": 75.83333333333333,
+      "wilson_low": 67.44985095256891,
+      "wilson_high": 82.61415878246474,
+      "mean_steps_successful": 117.13186813186813
+    },
+    {
+      "condition": "clean",
+      "setting": "BF16",
+      "n": 600,
+      "sr": 82.83333333333333,
+      "wilson_low": 79.60952941653719,
+      "wilson_high": 85.6393855502298,
+      "mean_steps_successful": 119.54527162977867
+    },
+    {
+      "condition": "clean",
+      "setting": "VE-W4",
+      "n": 600,
+      "sr": 83.0,
+      "wilson_low": 79.78666024557707,
+      "wilson_high": 85.79346748751867,
+      "mean_steps_successful": 119.58433734939759
+    },
+    {
+      "condition": "clean",
+      "setting": "W4",
+      "n": 600,
+      "sr": 80.5,
+      "wilson_low": 77.13990928560017,
+      "wilson_high": 83.47202695256411,
+      "mean_steps_successful": 122.4968944099379
+    },
+    {
+      "condition": "clean",
+      "setting": "W8",
+      "n": 600,
+      "sr": 82.33333333333333,
+      "wilson_low": 79.07874378257218,
+      "wilson_high": 85.17653288520852,
+      "mean_steps_successful": 119.97165991902834
+    },
+    {
+      "condition": "layout",
+      "setting": "BF16",
+      "n": 300,
+      "sr": 61.333333333333336,
+      "wilson_low": 55.71245198072374,
+      "wilson_high": 66.66764067151986,
+      "mean_steps_successful": 121.26086956521739
+    },
+    {
+      "condition": "layout",
+      "setting": "VE-W4",
+      "n": 300,
+      "sr": 59.666666666666664,
+      "wilson_low": 54.027119564340595,
+      "wilson_high": 65.06178299198486,
+      "mean_steps_successful": 121.07821229050279
+    },
+    {
+      "condition": "layout",
+      "setting": "W4",
+      "n": 300,
+      "sr": 54.666666666666664,
+      "wilson_low": 49.00984751392918,
+      "wilson_high": 60.20548475464172,
+      "mean_steps_successful": 122.8719512195122
+    },
+    {
+      "condition": "layout",
+      "setting": "W8",
+      "n": 120,
+      "sr": 60.833333333333336,
+      "wilson_low": 51.89378169992731,
+      "wilson_high": 69.10080302766744,
+      "mean_steps_successful": 121.24657534246575
+    },
+    {
+      "condition": "lighting",
+      "setting": "BF16",
+      "n": 300,
+      "sr": 72.33333333333333,
+      "wilson_low": 67.01300560341224,
+      "wilson_high": 77.08894168189137,
+      "mean_steps_successful": 121.40092165898618
+    },
+    {
+      "condition": "lighting",
+      "setting": "VE-W4",
+      "n": 300,
+      "sr": 71.33333333333333,
+      "wilson_low": 65.97183711272248,
+      "wilson_high": 76.15539611503023,
+      "mean_steps_successful": 120.42056074766356
+    },
+    {
+      "condition": "lighting",
+      "setting": "W4",
+      "n": 300,
+      "sr": 66.0,
+      "wilson_low": 60.467445330463796,
+      "wilson_high": 71.12797959035073,
+      "mean_steps_successful": 124.38888888888889
+    },
+    {
+      "condition": "lighting",
+      "setting": "W8",
+      "n": 120,
+      "sr": 70.0,
+      "wilson_low": 61.28485756752643,
+      "wilson_high": 77.47437577572543,
+      "mean_steps_successful": 119.75
+    }
+  ],
+  "gaps": {
+    "background/VE-W4": {
+      "estimate": -0.33333333333333337,
+      "ci_low": -3.3333333333333335,
+      "ci_high": 2.6666666666666665,
+      "se": 1.5018469510660672,
+      "wald_p": 0.8243536347456806,
+      "n_matched": 300,
+      "n10": 8,
+      "n01": 9,
+      "discordance": 0.056666666666666664
+    },
+    "background/W4": {
+      "estimate": 1.6666666666666667,
+      "ci_low": -3.0,
+      "ci_high": 6.333333333333333,
+      "se": 2.397492962224719,
+      "wald_p": 0.48694838272186425,
+      "n_matched": 300,
+      "n10": 28,
+      "n01": 23,
+      "discordance": 0.17
+    },
+    "background/W8": {
+      "estimate": 0.8333333333333334,
+      "ci_low": -1.6666666666666667,
+      "ci_high": 4.166666666666667,
+      "se": 1.438961944533089,
+      "wald_p": 0.5625074125365366,
+      "n_matched": 120,
+      "n10": 3,
+      "n01": 2,
+      "discordance": 0.041666666666666664
+    },
+    "clean/VE-W4": {
+      "estimate": -0.16666666666666669,
+      "ci_low": -1.8333333333333333,
+      "ci_high": 1.6666666666666667,
+      "se": 0.8895393995277044,
+      "wald_p": 0.8513761220998287,
+      "n_matched": 600,
+      "n10": 11,
+      "n01": 12,
+      "discordance": 0.03833333333333333
+    },
+    "clean/W4": {
+      "estimate": 2.3333333333333335,
+      "ci_low": -0.16666666666666666,
+      "ci_high": 4.833333333333333,
+      "se": 1.269646435555286,
+      "wald_p": 0.06609453879845104,
+      "n_matched": 600,
+      "n10": 59,
+      "n01": 45,
+      "discordance": 0.17333333333333334
+    },
+    "clean/W8": {
+      "estimate": 0.5,
+      "ci_low": -1.0,
+      "ci_high": 2.1666666666666665,
+      "se": 0.8247937120005367,
+      "wald_p": 0.5443738611008765,
+      "n_matched": 600,
+      "n10": 20,
+      "n01": 17,
+      "discordance": 0.06166666666666667
+    },
+    "layout/VE-W4": {
+      "estimate": 1.6666666666666667,
+      "ci_low": 0.3333333333333333,
+      "ci_high": 3.3333333333333335,
+      "se": 0.7949113951821277,
+      "wald_p": 0.0360228211640247,
+      "n_matched": 300,
+      "n10": 6,
+      "n01": 1,
+      "discordance": 0.023333333333333334
+    },
+    "layout/W4": {
+      "estimate": 6.666666666666667,
+      "ci_low": 2.6666666666666665,
+      "ci_high": 10.666666666666666,
+      "se": 2.035472688595382,
+      "wald_p": 0.0010557130693935074,
+      "n_matched": 300,
+      "n10": 33,
+      "n01": 13,
+      "discordance": 0.15333333333333332
+    },
+    "layout/W8": {
+      "estimate": 0.0,
+      "ci_low": -3.3333333333333335,
+      "ci_high": 3.3333333333333335,
+      "se": 1.6242984621896461,
+      "wald_p": 1.0,
+      "n_matched": 120,
+      "n10": 2,
+      "n01": 2,
+      "discordance": 0.03333333333333333
+    },
+    "lighting/VE-W4": {
+      "estimate": 1.0,
+      "ci_low": -1.0,
+      "ci_high": 3.0,
+      "se": 0.9641504157329246,
+      "wald_p": 0.29965078253921057,
+      "n_matched": 300,
+      "n10": 6,
+      "n01": 3,
+      "discordance": 0.03
+    },
+    "lighting/W4": {
+      "estimate": 6.333333333333334,
+      "ci_low": 2.0,
+      "ci_high": 10.666666666666666,
+      "se": 2.239757329404861,
+      "wald_p": 0.004688558069721958,
+      "n_matched": 300,
+      "n10": 39,
+      "n01": 20,
+      "discordance": 0.19666666666666666
+    },
+    "lighting/W8": {
+      "estimate": 0.0,
+      "ci_low": -3.3333333333333335,
+      "ci_high": 3.3333333333333335,
+      "se": 1.6145250233581236,
+      "wald_p": 1.0,
+      "n_matched": 120,
+      "n10": 3,
+      "n01": 3,
+      "discordance": 0.05
+    }
+  },
+  "qrp": {
+    "VE-W4": {
+      "lighting": {
+        "estimate": 1.1666666666666667,
+        "ci_low": -1.0,
+        "ci_high": 3.333333333333333,
+        "se": 1.0814784332128842,
+        "wald_p": 0.2806901985189638
+      },
+      "background": {
+        "estimate": -0.16666666666666669,
+        "ci_low": -4.333333333333333,
+        "ci_high": 3.833333333333333,
+        "se": 2.061972360373906,
+        "wald_p": 0.9355781366392227
+      },
+      "layout": {
+        "estimate": 1.8333333333333335,
+        "ci_low": -0.3333333333333333,
+        "ci_high": 4.166666666666666,
+        "se": 1.1507662043695257,
+        "wald_p": 0.1111284636586597
+      },
+      "pooled_visual": {
+        "estimate": 0.9444444444444445,
+        "ci_low": -1.3888888888888886,
+        "ci_high": 3.222222222222222,
+        "se": 1.1647008377326997,
+        "wald_p": 0.41742875369350146,
+        "shifts": [
+          "lighting",
+          "background",
+          "layout"
+        ],
+        "reduced_set": false
+      }
+    },
+    "W4": {
+      "lighting": {
+        "estimate": 4.0,
+        "ci_low": -1.1666666666666665,
+        "ci_high": 9.166666666666666,
+        "se": 2.6117586128198176,
+        "wald_p": 0.1256371973274409
+      },
+      "background": {
+        "estimate": -0.6666666666666667,
+        "ci_low": -5.17083333333333,
+        "ci_high": 3.833333333333334,
+        "se": 2.3184383987922197,
+        "wald_p": 0.7736913205135962
+      },
+      "layout": {
+        "estimate": 4.333333333333334,
+        "ci_low": -0.8333333333333333,
+        "ci_high": 9.333333333333332,
+        "se": 2.578118609158551,
+        "wald_p": 0.09279938899448677
+      },
+      "pooled_visual": {
+        "estimate": 2.555555555555556,
+        "ci_low": -1.0555555555555556,
+        "ci_high": 6.111111111111111,
+        "se": 1.8445470146007694,
+        "wald_p": 0.1659102900663728,
+        "shifts": [
+          "lighting",
+          "background",
+          "layout"
+        ],
+        "reduced_set": false
+      }
+    },
+    "W8": {
+      "lighting": {
+        "estimate": -0.5,
+        "ci_low": -4.166666666666667,
+        "ci_high": 3.166666666666667,
+        "se": 1.8352263919630305,
+        "wald_p": 0.7852791445116951
+      },
+      "background": {
+        "estimate": 0.33333333333333337,
+        "ci_low": -2.8333333333333335,
+        "ci_high": 3.5000000000000004,
+        "se": 1.6050577556018537,
+        "wald_p": 0.8354812972377315
+      },
+      "layout": {
+        "estimate": -0.5,
+        "ci_low": -4.0,
+        "ci_high": 2.8333333333333335,
+        "se": 1.7236956727913029,
+        "wald_p": 0.7717593147523307
+      },
+      "pooled_visual": {
+        "estimate": -0.2222222222222222,
+        "ci_low": -2.388888888888889,
+        "ci_high": 1.9444444444444446,
+        "se": 1.1024163645492833,
+        "wald_p": 0.84024711632318,
+        "shifts": [
+          "lighting",
+          "background",
+          "layout"
+        ],
+        "reduced_set": false
+      }
+    }
+  },
+  "tests": {
+    "H1": {
+      "setting": "VE-W4",
+      "estimate": 0.9444444444444445,
+      "ci_low": -1.3888888888888886,
+      "ci_high": 3.222222222222222,
+      "se": 1.1647008377326997,
+      "wald_p": 0.41742875369350146,
+      "shifts": [
+        "lighting",
+        "background",
+        "layout"
+      ],
+      "reduced_set": false,
+      "decision": "NO PRACTICALLY IMPORTANT PENALTY (interval includes 0, stays below +5)"
+    },
+    "holm": {
+      "m": 4,
+      "results": {
+        "VE-W4 QRP layout": {
+          "p": 0.1111284636586597,
+          "threshold": 0.0125,
+          "reject": false
+        },
+        "H2: W4 pooled QRP": {
+          "p": 0.1659102900663728,
+          "threshold": 0.016666666666666666,
+          "reject": false
+        },
+        "VE-W4 QRP lighting": {
+          "p": 0.2806901985189638,
+          "threshold": 0.025,
+          "reject": false
+        },
+        "VE-W4 QRP background": {
+          "p": 0.9355781366392227,
+          "threshold": 0.05,
+          "reject": false
+        }
+      }
+    }
+  },
+  "sensitivity": {
+    "bootstrap_within": "resample",
+    "qrp": {
+      "VE-W4": {
+        "lighting": {
+          "estimate": 1.1666666666666667,
+          "ci_low": -1.9934064343357578,
+          "ci_high": 4.337876254180601,
+          "se": 1.592683695468453,
+          "wald_p": 0.4638535362166457
+        },
+        "background": {
+          "estimate": -0.16666666666666669,
+          "ci_low": -5.189093959731544,
+          "ci_high": 4.515689331796714,
+          "se": 2.465507144082125,
+          "wald_p": 0.9461045772637261
+        },
+        "layout": {
+          "estimate": 1.8333333333333335,
+          "ci_low": -1.171122215565601,
+          "ci_high": 4.921113747483462,
+          "se": 1.565285172725803,
+          "wald_p": 0.24150008062183445
+        },
+        "pooled_visual": {
+          "estimate": 0.9444444444444445,
+          "ci_low": -2.0611683880806377,
+          "ci_high": 3.8289291398062377,
+          "se": 1.4892730525714108,
+          "wald_p": 0.5259733221032739,
+          "shifts": [
+            "lighting",
+            "background",
+            "layout"
+          ],
+          "reduced_set": false
+        }
+      },
+      "W4": {
+        "lighting": {
+          "estimate": 4.0,
+          "ci_low": -3.3333333333333335,
+          "ci_high": 11.491337719298244,
+          "se": 3.757714008707013,
+          "wald_p": 0.28711268448266253
+        },
+        "background": {
+          "estimate": -0.6666666666666667,
+          "ci_low": -7.505574136008918,
+          "ci_high": 6.1959901760529075,
+          "se": 3.493066421340459,
+          "wald_p": 0.8486397632081376
+        },
+        "layout": {
+          "estimate": 4.333333333333334,
+          "ci_low": -2.987763836202704,
+          "ci_high": 11.589459161147902,
+          "se": 3.6766869262541078,
+          "wald_p": 0.23855856196281885
+        },
+        "pooled_visual": {
+          "estimate": 2.555555555555556,
+          "ci_low": -2.7794555798833107,
+          "ci_high": 7.904625778486754,
+          "se": 2.746880165851049,
+          "wald_p": 0.35219072796133144,
+          "shifts": [
+            "lighting",
+            "background",
+            "layout"
+          ],
+          "reduced_set": false
+        }
+      },
+      "W8": {
+        "lighting": {
+          "estimate": -0.5,
+          "ci_low": -5.62568870523416,
+          "ci_high": 4.639118457300276,
+          "se": 2.5935857066990935,
+          "wald_p": 0.8471286862509857
+        },
+        "background": {
+          "estimate": 0.33333333333333337,
+          "ci_low": -4.666666666666667,
+          "ci_high": 5.404371584699454,
+          "se": 2.510916917898644,
+          "wald_p": 0.894388228245335
+        },
+        "layout": {
+          "estimate": -0.5,
+          "ci_low": -5.361519607843138,
+          "ci_high": 4.312844352617078,
+          "se": 2.4244942381502015,
+          "wald_p": 0.8366123653138602
+        },
+        "pooled_visual": {
+          "estimate": -0.2222222222222222,
+          "ci_low": -3.615947986926334,
+          "ci_high": 3.164428374655647,
+          "se": 1.712612525312021,
+          "wald_p": 0.8967592576634442,
+          "shifts": [
+            "lighting",
+            "background",
+            "layout"
+          ],
+          "reduced_set": false
+        }
+      }
+    },
+    "H1": {
+      "setting": "VE-W4",
+      "estimate": 0.9444444444444445,
+      "ci_low": -2.0611683880806377,
+      "ci_high": 3.8289291398062377,
+      "se": 1.4892730525714108,
+      "wald_p": 0.5259733221032739,
+      "shifts": [
+        "lighting",
+        "background",
+        "layout"
+      ],
+      "reduced_set": false,
+      "decision": "NO PRACTICALLY IMPORTANT PENALTY (interval includes 0, stays below +5)"
+    }
+  },
+  "sensitivity_covered": {
+    "covered_tasks": {
+      "lighting": {
+        "excluded_tasks": [
+          [
+            "libero_goal",
+            1
+          ],
+          [
+            "libero_goal",
+            6
+          ],
+          [
+            "libero_object",
+            1
+          ],
+          [
+            "libero_object",
+            5
+          ],
+          [
+            "libero_spatial",
+            1
+          ]
+        ],
+        "n_tasks": 25
+      },
+      "background": {
+        "excluded_tasks": [
+          [
+            "libero_goal",
+            4
+          ],
+          [
+            "libero_goal",
+            6
+          ],
+          [
+            "libero_spatial",
+            8
+          ]
+        ],
+        "n_tasks": 27
+      },
+      "layout": {
+        "excluded_tasks": [
+          [
+            "libero_object",
+            4
+          ],
+          [
+            "libero_spatial",
+            6
+          ]
+        ],
+        "n_tasks": 28
+      }
+    },
+    "qrp": {
+      "VE-W4": {
+        "lighting": {
+          "estimate": 1.8,
+          "ci_low": -0.43527667984189683,
+          "ci_high": 4.090909090909091,
+          "se": 1.1620572425514233,
+          "wald_p": 0.1213872370248958
+        },
+        "background": {
+          "estimate": 0.3703703703703704,
+          "ci_low": -4.107142857142857,
+          "ci_high": 4.642857142857142,
+          "se": 2.2378711110595524,
+          "wald_p": 0.8685494997515354
+        },
+        "layout": {
+          "estimate": 1.6071428571428572,
+          "ci_low": -0.6249999999999999,
+          "ci_high": 3.9655172413793105,
+          "se": 1.1838129738363012,
+          "wald_p": 0.17459108176758428
+        },
+        "pooled_visual": {
+          "estimate": 1.2591710758377426,
+          "ci_low": -1.2303876678876675,
+          "ci_high": 3.6192737791157334,
+          "se": 1.2386192241263518,
+          "wald_p": 0.3093472996265127,
+          "shifts": [
+            "lighting",
+            "background",
+            "layout"
+          ],
+          "reduced_set": false
+        }
+      },
+      "W4": {
+        "lighting": {
+          "estimate": 2.4,
+          "ci_low": -3.4000000000000004,
+          "ci_high": 8.260869565217392,
+          "se": 2.960691525383586,
+          "wald_p": 0.41758310596377984
+        },
+        "background": {
+          "estimate": -0.5555555555555554,
+          "ci_low": -5.555555555555555,
+          "ci_high": 4.4,
+          "se": 2.5180041205763923,
+          "wald_p": 0.8253779712149265
+        },
+        "layout": {
+          "estimate": 4.642857142857142,
+          "ci_low": -0.8620689655172411,
+          "ci_high": 9.83749999999994,
+          "se": 2.7473761164654333,
+          "wald_p": 0.09104247405597957
+        },
+        "pooled_visual": {
+          "estimate": 2.1624338624338626,
+          "ci_low": -1.6491835431490605,
+          "ci_high": 5.854981264963772,
+          "se": 1.8982762516323781,
+          "wald_p": 0.2546378564304088,
+          "shifts": [
+            "lighting",
+            "background",
+            "layout"
+          ],
+          "reduced_set": false
+        }
+      },
+      "W8": {
+        "lighting": {
+          "estimate": -2.0,
+          "ci_low": -5.8,
+          "ci_high": 1.4583333333333335,
+          "se": 1.8386653796947827,
+          "wald_p": 0.2767074734292755
+        },
+        "background": {
+          "estimate": 0.37037037037037024,
+          "ci_low": -3.0357142857142856,
+          "ci_high": 3.928571428571428,
+          "se": 1.7626917930246189,
+          "wald_p": 0.8335768628030983
+        },
+        "layout": {
+          "estimate": -0.5357142857142857,
+          "ci_low": -4.285714285714286,
+          "ci_high": 3.076923076923077,
+          "se": 1.850392452490441,
+          "wald_p": 0.7721881650324026
+        },
+        "pooled_visual": {
+          "estimate": -0.7217813051146384,
+          "ci_low": -2.9459800523018913,
+          "ci_high": 1.501105769230769,
+          "se": 1.133508653141885,
+          "wald_p": 0.5242763940840324,
+          "shifts": [
+            "lighting",
+            "background",
+            "layout"
+          ],
+          "reduced_set": false
+        }
+      }
+    },
+    "H1": {
+      "setting": "VE-W4",
+      "estimate": 1.2591710758377426,
+      "ci_low": -1.2303876678876675,
+      "ci_high": 3.6192737791157334,
+      "se": 1.2386192241263518,
+      "wald_p": 0.3093472996265127,
+      "shifts": [
+        "lighting",
+        "background",
+        "layout"
+      ],
+      "reduced_set": false,
+      "decision": "NO PRACTICALLY IMPORTANT PENALTY (interval includes 0, stays below +5)"
+    }
+  }
+}

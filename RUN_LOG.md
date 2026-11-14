@@ -412,6 +412,31 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   `E3-<setting>-<suite>.jsonl` (results/README naming) before merging, contents unchanged.
   Raw rates only; the QRP and its interval come from `qrp_bootstrap.py` on the full grid.
 
+### A1 · QRP analysis on the full core grid (Amina)
+- Date / who: 2026-11-13 18:20 PT · Amina (laptop, no GPU)
+- Data / commit: `main` @ `5355f53` (all core files merged: E2 clean 2,400 episodes; E3 lighting,
+  background and layout 1,020 each). Manifest `configs/qrp/study_manifest.yaml` as frozen
+  (language dropped, Holm m = 4).
+- Command:
+  `python scripts/qrp_bootstrap.py configs/qrp/study_manifest.yaml --base-dir . --out-json analysis/qrp.json --out-md analysis/qrp.md`
+- Output files: `analysis/qrp.json`, `analysis/qrp.md` (10,000 replicates, seed 0, tasks-only
+  bootstrap as primary).
+- Result:
+  - **H1 (primary): pooled visual QRP for VE-W4 = +0.9 pp [−1.4, +3.2]** → **no practically
+    important penalty** (interval includes 0 and stays below the +5 pp threshold).
+  - Per shift, VE-W4 QRP: lighting +1.2 [−1.0, +3.3], background −0.2 [−4.3, +3.8],
+    layout +1.8 [−0.3, +4.2].
+  - W4 (whole model) pooled QRP +2.6 [−1.1, +6.1]; W8 −0.2 [−2.4, +1.9].
+  - Secondary tests (Holm, m = 4): none rejected (smallest p = 0.111, VE-W4 layout).
+- Checks: provenance check passed for every cell (same host, GPU, VQB commit, seed,
+  benchmark; episodes per task consistent within each condition, W8 subset exempt in shifted
+  conditions). Sensitivity analyses agree with the primary decision: two-stage bootstrap
+  (proposal 7.1) +0.9 [−2.1, +3.8]; tasks without fallback episodes only +1.3 [−1.2, +3.6].
+- Notes: the observed SE of the pooled VE-W4 QRP (1.16 pp) matches the E1 power update's
+  projection (1.17 pp). Smitha reproduces this run independently from the same commit
+  (command only, results not shared before her run).
+
+
 ---
 
 ## Decisions
