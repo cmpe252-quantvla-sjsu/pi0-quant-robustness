@@ -476,3 +476,16 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
 - Core runs also save videos with `--video-dir` (`/opt/qvla/videos/E2/clean/<setting>/`,
   `/opt/qvla/videos/E3/<condition>/<setting>/`), needed for E5.
 - From here on, any change to the frozen design is logged here as a deviation.
+
+### 2026-11-13 · After A1: optional experiments and E5 setup (Amina and Smitha)
+- **E6 and E7 are not run.** Both are optional in the plan, and A1 already rules out a
+  practically important VE-W4 penalty (pooled QRP +0.9 [−1.4, +3.2], below the 5 pp threshold).
+  No new rollouts before the Nov 20 experiment freeze.
+- **E5 split:** Amina writes the codebook (`docs/FAILURE_CODEBOOK.md`); Smitha writes the
+  selection/blinding script (`smitha/e5-script`: sample, kappa, report). Both code the videos;
+  Cohen's κ on 30 shared videos.
+- **E5 sampling:** all VE-W4 discordant pairs (56) plus up to 15 W4 pairs per condition and
+  direction (166 videos in total), so the failure modes of a setting with a clear quantization
+  effect (W4) can be compared with VE-W4.
+- The codebook is frozen before anyone watches an E2/E3 core video; drafting uses pilot videos
+  only (e.g. E0a).
