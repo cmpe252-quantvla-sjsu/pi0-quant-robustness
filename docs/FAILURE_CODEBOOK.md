@@ -24,8 +24,8 @@ the drawer open).
 | `GRASP_MISS` | Grasp failed | The gripper gets to the target and closes (on it, on its edge, or on air right next to it), but the target is **never lifted** (rule 2). Pushing, nudging or tipping it does not count as lifting. | t0_e2, t1_e9, t3_e1, t4_e1, t4_e5, t6_e3 |
 | `SLIP` | Dropped object | The target is **lifted** (rule 2), then falls or slides out of the gripper **before** the robot releases it at the goal. | t1_e6, t2_e5, t2_e10, t3_e4, t8_e0 |
 | `EXTRA_OBJECT` | Extra object moved | The robot aims at the target, but another object is moved with it or instead of it: an object stacked under or attached to the target (e.g. the ramekin under the bowl), or one caught by the gripper together with the target (e.g. the plate's edge). The other object spoils the result. | t5_e1, t8_e1 |
-| `PLACE_MISS` | Wrong placement | The target reaches the goal area and is **released**, but the result does not count: tilted on the edge, off-center or next to the goal, or the final action is done on the right object but not completed (e.g. drawer only partly open). | t5_e3, t6_e2, t7_e4, t7_e13, t9_e0, t9_e1 |
-| `TIMEOUT` | Timeout | At the furthest stage reached, the robot's last attempt shows **no visible mistake**: it is still holding the target (e.g. over the goal) or carrying it slowly when time runs out. | t0_e1 |
+| `PLACE_MISS` | Wrong placement | The target reaches the goal area and is **released**, but the result does not count: tilted on the edge, off-center or next to the goal, or the final action is done on the right object but not completed and the robot stopped or let go (e.g. drawer left partly open). | t5_e3, t6_e2, t7_e4, t7_e13, t9_e0, t9_e1 |
+| `TIMEOUT` | Timeout | At the furthest stage reached, the robot's last attempt shows **no visible mistake**: it is still holding the target (e.g. over the goal), carrying it slowly, or still doing the final action (e.g. still pulling a partly open drawer) when time runs out. | t0_e1 |
 | `OTHER` | Other | None of the above fits. Write what happened in the note. | none |
 
 ## Decision rules
@@ -35,6 +35,10 @@ the drawer open).
    ended. Examples: lifted, slipped, grasped again, carried to the plate, still holding it
    when time runs out → `TIMEOUT`; lifted and slipped over the plate twice → `SLIP`; lifted,
    slipped, re-grasped, released tilted on the plate → `PLACE_MISS`.
+   **Where `WRONG_OBJECT` fits:** if the robot only ever went for another object, the code is
+   `WRONG_OBJECT`. If it went for another object first and then for the target, code the
+   target's furthest stage as above, and start the note with `first: WRONG_OBJECT` so these
+   early wrong-object attempts can be counted (see Reporting).
 2. **Lifted** means the target is **held between the gripper's fingers with its bottom off
    the surface**. A target that moves only because the arm or the outside of the fingers
    pushed, nudged, slid or tipped it was **not** lifted. Lifted or not separates `GRASP_MISS`
@@ -63,7 +67,8 @@ the drawer open).
    which object is the target. Watch as many times as needed, at reduced speed if useful.
 3. Enter the code (exactly as in the table, e.g. `PLACE_MISS`) in `code_A` or `code_B`, and a
    short note in `note_A` or `note_B` (one line: what happened, and the rule used if it was a
-   close call).
+   close call). If an earlier attempt went for another object, start the note with
+   `first: WRONG_OBJECT` (rule 1).
 4. **Never open the `key/` folder** before all coding is finished. It says which setting
    failed, which would unblind the coding.
 5. Code the 30 shared (`both`) videos **independently**: do not discuss them or look at the
@@ -104,7 +109,9 @@ Decided 2026-11-13 (`RUN_LOG.md`, Decisions). The video sampled for a pair is th
 failure modes among the **sampled discordant episodes** (descriptive, no test). More
 `WRONG_OBJECT` or `NO_REACH` among quantized failures than among BF16 failures would be
 consistent with perception-related failures (proposal §5); grasp, carry and placement codes
-point to action precision instead.
+point to action precision instead. We also count, descriptively, the notes starting with
+`first: WRONG_OBJECT` (early wrong-object attempts before the target), per setting and
+direction, since rule 1 codes those videos by the target's furthest stage.
 
 ## Relation to the proposal
 
