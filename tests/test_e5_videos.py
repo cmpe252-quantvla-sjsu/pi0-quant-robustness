@@ -160,3 +160,23 @@ def test_dry_run_and_missing_videos_write_nothing(tmp_path):
     e5.main(["sample", "--manifest", str(m2), "--base-dir", str(b2), "--videos", str(v2), "--out", str(out), "--dry-run"])
     sheet, _ = run_sample(b2, v2, m2, out, w4_per_direction=3)
     assert sheet and "—" in sheet[0]["instruction"]        # non-ASCII text survives (utf-8)
+
+
+def test_report_counts_shared_bf16_failure_in_both_pairs_and_first_wrong_object_notes(tmp_path):
+    base, videos, man = fake(tmp_path)
+    out = tmp_path / "e5"
+    sheet, key = run_sample(base, videos, man, out, w4_per_direction=3)
+    shared_bf16 = [k["video_id"] for k in key if k["failed_setting"] == "BF16"]
+    assert len(shared_bf16) == 2 and shared_bf16[0] == shared_bf16[1]   # one video, two pairs
+    for r in sheet:
+        for c in ("A", "B"):
+            if r["assigned"] in (c, "both"):
+                r["code_" + c] = "TIMEOUT"
+        if r["video_id"] == shared_bf16[0]:
+            r["note_A"] = "First: wrong_object (went for the plate), then grasp"
+    with open(out / "coding_sheet.csv", "w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, e5.SHEET_FIELDS); w.writeheader(); w.writerows(sheet)
+    e5.main(["report", "--out", str(out), "--md", str(tmp_path / "r.md"), "--codebook", codebook(tmp_path)])
+    md = (tmp_path / "r.md").read_text(encoding="utf-8")
+    assert "| clean | VE-W4 | BF16 | 1 | 1 |" in md and "| clean | W4 | BF16 | 1 | 1 |" in md
+    assert "| clean | VE-W4 | VE-W4 | 2 | 0 |" in md

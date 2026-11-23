@@ -222,26 +222,39 @@ def final(r):
     return r["code_" + r["assigned"]]
 
 
+def first_wrong_object(r) -> int:
+    """1 if either coder's note starts with the rule-1 tag 'first: WRONG_OBJECT' (any case)."""
+    return int(any((r.get(n) or "").strip().lower().startswith("first: wrong_object") for n in ("note_A", "note_B")))
+
+
 def cmd_report(a):
     out = Path(a.out)
     codes = codebook_codes(a.codebook)
     rows = {r["video_id"]: r for r in read_sheet(out / "coding_sheet.csv", codes)}
-    key = {r["video_id"]: r for r in csv.DictReader(open(out / "key" / "key.csv", newline="", encoding="utf-8"))}
+    # one key row per selected pair; a BF16 failure shared by a VE-W4 and a W4 pair has two rows
+    keyrows = list(csv.DictReader(open(out / "key" / "key.csv", newline="", encoding="utf-8")))
     open_rows = [v for v, r in rows.items() if not final(r)]
     if open_rows:
         raise SystemExit(f"{len(open_rows)} videos have no final code yet (e.g. {open_rows[0]}); "
                          "resolve shared disagreements in final_code first")
-    tab = defaultdict(Counter)
-    for v, r in rows.items():
-        k = key[v]
-        tab[(k["condition"], k["pair_setting"], k["failed_setting"])][final(r)] += 1
+    tab, early = defaultdict(Counter), Counter()
+    for k in keyrows:
+        r = rows[k["video_id"]]
+        g = (k["condition"], k["pair_setting"], k["failed_setting"])
+        tab[g][final(r)] += 1
+        early[g] += first_wrong_object(r)
     L = ["# E5 failure modes (unblinded)", "",
-         "One video per discordant pair: the episode that failed. Counts of the primary code.", "",
-         "| condition | pair | failed | n | " + " | ".join(codes) + " |",
-         "|---|---|---|---|" + "---|" * len(codes)]
-    for (c, s, f) in sorted(tab):
-        cnt = tab[(c, s, f)]
-        L.append(f"| {c} | {s} | {f} | {sum(cnt.values())} | " + " | ".join(str(cnt.get(x, 0)) for x in codes) + " |")
+         "One video per failed episode; a BF16 failure that is discordant with both VE-W4 and W4 is",
+         "counted in both pairs. Counts of the primary code. `first: WRONG_OBJECT` counts videos whose",
+         "note (either coder's) starts with that tag: an earlier attempt went for another object",
+         "(codebook rule 1).", "",
+         "| condition | pair | failed | n | first: WRONG_OBJECT | " + " | ".join(codes) + " |",
+         "|---|---|---|---|---|" + "---|" * len(codes)]
+    for g in sorted(tab):
+        cnt = tab[g]
+        c, s_, f = g
+        L.append(f"| {c} | {s_} | {f} | {sum(cnt.values())} | {early[g]} | "
+                 + " | ".join(str(cnt.get(x, 0)) for x in codes) + " |")
     shared = [r for r in rows.values() if r["assigned"] == "both" and r["code_A"] and r["code_B"]]
     if shared:
         L += ["", f"Agreement on {len(shared)} shared videos: Cohen's kappa = "
