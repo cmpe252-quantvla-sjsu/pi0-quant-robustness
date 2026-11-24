@@ -488,7 +488,7 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   direction (166 videos in total), so the failure modes of a setting with a clear quantization
   effect (W4) can be compared with VE-W4.
 - The codebook is frozen before anyone watches an E2/E3 core video; drafting uses pilot videos
-  only (e.g. E0a).S
+  only (e.g. E0a).
 
 ### 2026-11-23 · E5 codebook clarification: push tasks (Amina and Smitha)
 - Codebook v1 (`docs/FAILURE_CODEBOOK.md`) is unchanged. Its pilot videos were all LIBERO-Spatial
