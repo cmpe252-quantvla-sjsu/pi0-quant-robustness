@@ -180,8 +180,14 @@ def cmd_sample(a):
     print(f"coding sheet: {out/'coding_sheet.csv'}   key (do not open): {out/'key'/'key.csv'}")
 
 
+def load_csv(path):
+    # utf-8-sig also reads sheets saved from Excel as "CSV UTF-8", which start with a hidden BOM
+    with open(path, newline="", encoding="utf-8-sig") as fh:
+        return list(csv.DictReader(fh))
+
+
 def read_sheet(path, codes):
-    rows = list(csv.DictReader(open(path, newline="", encoding="utf-8")))
+    rows = load_csv(path)
     for r in rows:
         for c in ("code_A", "code_B", "final_code"):
             v = (r.get(c) or "").strip().upper()
@@ -189,6 +195,27 @@ def read_sheet(path, codes):
                 raise SystemExit(f"{r['video_id']}: {c} = {v!r} is not a codebook code {codes}")
             r[c] = v
     return rows
+
+
+def cmd_merge(a):
+    """Combine coder A's copy (code_A/note_A) and coder B's copy (code_B/note_B) into one sheet."""
+    sa, sb = load_csv(a.a), load_csv(a.b)
+    ia, ib = {r["video_id"]: r for r in sa}, {r["video_id"]: r for r in sb}
+    if set(ia) != set(ib) or len(ia) != len(sa) or len(ib) != len(sb):
+        raise SystemExit(f"the two sheets do not list the same videos ({len(ia)} vs {len(ib)} ids)")
+    if Path(a.to).exists() and not a.force:
+        raise SystemExit(f"{a.to} exists; pass --force to overwrite it")
+    rows = []
+    for r in sa:
+        b = ib[r["video_id"]]
+        if r["assigned"] != b["assigned"]:
+            raise SystemExit(f"{r['video_id']}: assigned differs between the sheets")
+        rows.append({**{f: r.get(f, "") for f in SHEET_FIELDS},
+                     "code_B": b.get("code_B", ""), "note_B": b.get("note_B", ""),
+                     "final_code": r.get("final_code") or b.get("final_code") or ""})
+    with open(a.to, "w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, SHEET_FIELDS); w.writeheader(); w.writerows(rows)
+    print(f"merged {len(rows)} rows -> {a.to}")
 
 
 def kappa(a: list[str], b: list[str]) -> float:
@@ -222,26 +249,43 @@ def final(r):
     return r["code_" + r["assigned"]]
 
 
+FIRST_WRONG = re.compile(r"^\s*first\s*:\s*wrong[_ ]object", re.I)
+
+
+def first_wrong_object(r) -> int:
+    """1 if either coder's note starts with the rule-1 tag 'first: WRONG_OBJECT' (any case or spacing).
+    For a shared video this counts the tag if either coder wrote it."""
+    return int(any(FIRST_WRONG.match(r.get(n) or "") for n in ("note_A", "note_B")))
+
+
 def cmd_report(a):
     out = Path(a.out)
     codes = codebook_codes(a.codebook)
     rows = {r["video_id"]: r for r in read_sheet(out / "coding_sheet.csv", codes)}
-    key = {r["video_id"]: r for r in csv.DictReader(open(out / "key" / "key.csv", newline="", encoding="utf-8"))}
+    # one key row per selected pair; a BF16 failure shared by a VE-W4 and a W4 pair has two rows
+    keyrows = load_csv(out / "key" / "key.csv")
     open_rows = [v for v, r in rows.items() if not final(r)]
     if open_rows:
         raise SystemExit(f"{len(open_rows)} videos have no final code yet (e.g. {open_rows[0]}); "
                          "resolve shared disagreements in final_code first")
-    tab = defaultdict(Counter)
-    for v, r in rows.items():
-        k = key[v]
-        tab[(k["condition"], k["pair_setting"], k["failed_setting"])][final(r)] += 1
+    tab, early = defaultdict(Counter), Counter()
+    for k in keyrows:
+        r = rows[k["video_id"]]
+        g = (k["condition"], k["pair_setting"], k["failed_setting"])
+        tab[g][final(r)] += 1
+        early[g] += first_wrong_object(r)
     L = ["# E5 failure modes (unblinded)", "",
-         "One video per discordant pair: the episode that failed. Counts of the primary code.", "",
-         "| condition | pair | failed | n | " + " | ".join(codes) + " |",
-         "|---|---|---|---|" + "---|" * len(codes)]
-    for (c, s, f) in sorted(tab):
-        cnt = tab[(c, s, f)]
-        L.append(f"| {c} | {s} | {f} | {sum(cnt.values())} | " + " | ".join(str(cnt.get(x, 0)) for x in codes) + " |")
+         "One video per failed episode; a BF16 failure that is discordant with both VE-W4 and W4 is",
+         "counted in both pairs. Counts of the primary code. `first: WRONG_OBJECT` counts videos whose",
+         "note starts with that tag: an earlier attempt went for another object (codebook rule 1).",
+         "For a shared video it is counted if either coder wrote the tag.", "",
+         "| condition | pair | failed | n | first: WRONG_OBJECT | " + " | ".join(codes) + " |",
+         "|---|---|---|---|---|" + "---|" * len(codes)]
+    for g in sorted(tab):
+        cnt = tab[g]
+        c, s_, f = g
+        L.append(f"| {c} | {s_} | {f} | {sum(cnt.values())} | {early[g]} | "
+                 + " | ".join(str(cnt.get(x, 0)) for x in codes) + " |")
     shared = [r for r in rows.values() if r["assigned"] == "both" and r["code_A"] and r["code_B"]]
     if shared:
         L += ["", f"Agreement on {len(shared)} shared videos: Cohen's kappa = "
@@ -265,12 +309,17 @@ def main(argv=None):
     s.add_argument("--seed", type=int, default=0)
     s.add_argument("--dry-run", action="store_true", help="check videos exist, copy nothing")
     s.add_argument("--force", action="store_true")
+    m = sub.add_parser("merge", help="combine coder A's and coder B's copies of the sheet")
+    m.add_argument("--a", required=True, help="coder A's copy (code_A/note_A filled)")
+    m.add_argument("--b", required=True, help="coder B's copy (code_B/note_B filled)")
+    m.add_argument("--to", required=True, help="merged sheet, e.g. /opt/qvla/e5/coding_sheet.csv")
+    m.add_argument("--force", action="store_true")
     k = sub.add_parser("kappa"); k.add_argument("--sheet", required=True)
     r = sub.add_parser("report"); r.add_argument("--out", required=True); r.add_argument("--md")
     for p in (k, r):
         p.add_argument("--codebook", default=DEFAULT_CODEBOOK, help="the frozen codebook; codes are read from its table")
     a = ap.parse_args(argv)
-    {"sample": cmd_sample, "kappa": cmd_kappa, "report": cmd_report}[a.cmd](a)
+    {"sample": cmd_sample, "merge": cmd_merge, "kappa": cmd_kappa, "report": cmd_report}[a.cmd](a)
 
 
 if __name__ == "__main__":
