@@ -180,3 +180,29 @@ def test_report_counts_shared_bf16_failure_in_both_pairs_and_first_wrong_object_
     md = (tmp_path / "r.md").read_text(encoding="utf-8")
     assert "| clean | VE-W4 | BF16 | 1 | 1 |" in md and "| clean | W4 | BF16 | 1 | 1 |" in md
     assert "| clean | VE-W4 | VE-W4 | 2 | 0 |" in md
+
+
+def test_merge_combines_both_copies_and_reads_excel_bom(tmp_path, capsys):
+    rows = [{"video_id": "v1", "instruction": "x", "assigned": "both"},
+            {"video_id": "v2", "instruction": "y", "assigned": "A"}]
+    def write(name, enc, extra):
+        p = tmp_path / name
+        with open(p, "w", newline="", encoding=enc) as fh:
+            w = csv.DictWriter(fh, e5.SHEET_FIELDS); w.writeheader()
+            for r in rows:
+                w.writerow({**r, **extra.get(r["video_id"], {})})
+        return p
+    a = write("A.csv", "utf-8", {"v1": {"code_A": "TNR", "note_A": "first: WRONG_OBJECT"}, "v2": {"code_A": "DROP"}})
+    b = write("B.csv", "utf-8-sig", {"v1": {"code_B": "DROP"}})   # Excel "CSV UTF-8" adds a BOM
+    out = tmp_path / "merged.csv"
+    e5.main(["merge", "--a", str(a), "--b", str(b), "--to", str(out)])
+    m = {r["video_id"]: r for r in e5.load_csv(out)}
+    assert (m["v1"]["code_A"], m["v1"]["note_A"], m["v1"]["code_B"]) == ("TNR", "first: WRONG_OBJECT", "DROP")
+    assert m["v2"]["code_A"] == "DROP" and m["v2"]["code_B"] == ""
+    e5.main(["kappa", "--sheet", str(b), "--codebook", codebook(tmp_path)])   # BOM sheet reads fine
+    with pytest.raises(SystemExit, match="exists"):
+        e5.main(["merge", "--a", str(a), "--b", str(b), "--to", str(out)])
+    rows.append({"video_id": "v3", "instruction": "z", "assigned": "B"})
+    c = write("C.csv", "utf-8", {})
+    with pytest.raises(SystemExit, match="same videos"):
+        e5.main(["merge", "--a", str(a), "--b", str(c), "--to", str(tmp_path / "m2.csv")])
