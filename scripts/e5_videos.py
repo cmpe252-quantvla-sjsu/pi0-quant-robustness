@@ -249,9 +249,13 @@ def final(r):
     return r["code_" + r["assigned"]]
 
 
+FIRST_WRONG = re.compile(r"^\s*first\s*:\s*wrong[_ ]object", re.I)
+
+
 def first_wrong_object(r) -> int:
-    """1 if either coder's note starts with the rule-1 tag 'first: WRONG_OBJECT' (any case)."""
-    return int(any((r.get(n) or "").strip().lower().startswith("first: wrong_object") for n in ("note_A", "note_B")))
+    """1 if either coder's note starts with the rule-1 tag 'first: WRONG_OBJECT' (any case or spacing).
+    For a shared video this counts the tag if either coder wrote it."""
+    return int(any(FIRST_WRONG.match(r.get(n) or "") for n in ("note_A", "note_B")))
 
 
 def cmd_report(a):
@@ -273,8 +277,8 @@ def cmd_report(a):
     L = ["# E5 failure modes (unblinded)", "",
          "One video per failed episode; a BF16 failure that is discordant with both VE-W4 and W4 is",
          "counted in both pairs. Counts of the primary code. `first: WRONG_OBJECT` counts videos whose",
-         "note (either coder's) starts with that tag: an earlier attempt went for another object",
-         "(codebook rule 1).", "",
+         "note starts with that tag: an earlier attempt went for another object (codebook rule 1).",
+         "For a shared video it is counted if either coder wrote the tag.", "",
          "| condition | pair | failed | n | first: WRONG_OBJECT | " + " | ".join(codes) + " |",
          "|---|---|---|---|---|" + "---|" * len(codes)]
     for g in sorted(tab):

@@ -206,3 +206,11 @@ def test_merge_combines_both_copies_and_reads_excel_bom(tmp_path, capsys):
     c = write("C.csv", "utf-8", {})
     with pytest.raises(SystemExit, match="same videos"):
         e5.main(["merge", "--a", str(a), "--b", str(c), "--to", str(tmp_path / "m2.csv")])
+
+
+def test_first_wrong_object_tag_tolerates_spacing_and_case():
+    for note in ("first: WRONG_OBJECT", "first:WRONG_OBJECT", "  First :  wrong_object, then x", "FIRST: wrong object"):
+        assert e5.first_wrong_object({"note_A": note}) == 1, note
+    for note in ("", "wrong_object first", "not first: WRONG_OBJECT"):
+        assert e5.first_wrong_object({"note_A": note, "note_B": ""}) == 0, note
+    assert e5.first_wrong_object({"note_A": "", "note_B": "first:wrong_object"}) == 1
