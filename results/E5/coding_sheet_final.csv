@@ -1,7 +1,7 @@
 video_id,instruction,assigned,code_A,note_A,code_B,note_B,final_code
 v054ff,pick up the chocolate pudding and place it in the basket,A,PLACE_MISS,The target was on the edge of the basket,,,
 v06978,pick up the black bowl on the ramekin and place it on the plate,both,EXTRA_OBJECT,"picked up the bowl, ramekin came with it",EXTRA_OBJECT,,EXTRA_OBJECT
-v08b6a,open the top drawer and put the bowl inside,A,GRASP_MISS,"two-step; first try couldn't open the drawer; then went to the bowl, which slipped; drawer later opened by accident (pushed, not pulled). Recording the first mistake. Empty grasp.",,,
+v08b6a,open the top drawer and put the bowl inside,A,SLIP,"two-step; couldn't open drawer at first; lifted the bowl, it slipped; drawer then opened (pushed); went back to the bowl but time ran out before grasping",,,
 v097cd,put the cream cheese in the bowl,B,,,GRASP_MISS,just lifted only one corner ,
 v0ae24,pick up the black bowl between the plate and the ramekin and place it on the plate,B,,,PLACE_MISS,placed the bowl on the edge of the plate,
 v0b2a4,pick up the black bowl on the ramekin and place it on the plate,B,,,PLACE_MISS,placed the bowl on the edge of the plate,

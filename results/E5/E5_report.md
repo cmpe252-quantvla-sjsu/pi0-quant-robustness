@@ -14,7 +14,7 @@ For a shared video it is counted if either coder wrote the tag.
 | clean | VE-W4 | BF16 | 12 | 0 | 0 | 0 | 2 | 3 | 1 | 6 | 0 | 0 |
 | clean | VE-W4 | VE-W4 | 11 | 0 | 0 | 0 | 2 | 3 | 1 | 5 | 0 | 0 |
 | clean | W4 | BF16 | 15 | 0 | 0 | 1 | 5 | 2 | 0 | 7 | 0 | 0 |
-| clean | W4 | W4 | 15 | 0 | 0 | 0 | 7 | 4 | 0 | 4 | 0 | 0 |
+| clean | W4 | W4 | 15 | 0 | 0 | 0 | 6 | 5 | 0 | 4 | 0 | 0 |
 | layout | VE-W4 | BF16 | 1 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 0 |
 | layout | VE-W4 | VE-W4 | 6 | 0 | 0 | 0 | 0 | 0 | 1 | 5 | 0 | 0 |
 | layout | W4 | BF16 | 13 | 0 | 0 | 1 | 5 | 1 | 1 | 5 | 0 | 0 |
