@@ -1,7 +1,7 @@
 video_id,instruction,assigned,code_A,note_A,code_B,note_B,final_code
 v054ff,pick up the chocolate pudding and place it in the basket,A,PLACE_MISS,The target was on the edge of the basket,,,
 v06978,pick up the black bowl on the ramekin and place it on the plate,both,EXTRA_OBJECT,"picked up the bowl, ramekin came with it",EXTRA_OBJECT,,EXTRA_OBJECT
-v08b6a,open the top drawer and put the bowl inside,A,GRASP_MISS,"two-step; first try couldn't open the drawer; then went to the bowl, which slipped; drawer later opened by accident (pushed, not pulled)",,,
+v08b6a,open the top drawer and put the bowl inside,A,GRASP_MISS,"two-step; first try couldn't open the drawer; then went to the bowl, which slipped; drawer later opened by accident (pushed, not pulled). Recording the first mistake. Empty grasp.",,,
 v097cd,put the cream cheese in the bowl,B,,,GRASP_MISS,just lifted only one corner ,
 v0ae24,pick up the black bowl between the plate and the ramekin and place it on the plate,B,,,PLACE_MISS,placed the bowl on the edge of the plate,
 v0b2a4,pick up the black bowl on the ramekin and place it on the plate,B,,,PLACE_MISS,placed the bowl on the edge of the plate,
@@ -95,7 +95,7 @@ va1009,pick up the black bowl on the cookie box and place it on the plate,B,,,PL
 va5613,put the wine bottle on top of the cabinet,A,SLIP,"lifted the wine bottle, slipped out before reaching the cabinet top",,,
 va5d94,put the cream cheese in the bowl,both,PLACE_MISS,placed on the bowl but the bowl was tilted in the end,PLACE_MISS,,PLACE_MISS
 va9a4b,pick up the black bowl on the ramekin and place it on the plate,B,,,EXTRA_OBJECT,picked up both bowl and ramekin,
-vac7c4,open the middle drawer of the cabinet,A,WRONG_OBJECT,"went for the middle drawer instead of the middle one, never tried the middle",,,
+vac7c4,open the middle drawer of the cabinet,A,WRONG_OBJECT,"went for the top drawer instead of the middle one, never tried the middle",,,
 vacda9,pick up the tomato sauce and place it in the basket,B,,,SLIP,lifted and dropped tomato sauce right away,
 vae009,pick up the black bowl on the ramekin and place it on the plate,both,PLACE_MISS,placed on the edge of the plate. Not on the center.,PLACE_MISS,,PLACE_MISS
 vae4c0,pick up the black bowl on the cookie box and place it on the plate,A,SLIP,"lifted the bowl off the cookie box, then it fell before the plate",,,
