@@ -489,3 +489,19 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   effect (W4) can be compared with VE-W4.
 - The codebook is frozen before anyone watches an E2/E3 core video; drafting uses pilot videos
   only (e.g. E0a).
+
+### 2026-11-23 · E5 codebook clarification: push tasks (Amina and Smitha)
+- Codebook v1 (`docs/FAILURE_CODEBOOK.md`) is unchanged. Its pilot videos were all LIBERO-Spatial
+  pick-and-place, so push tasks (e.g. LIBERO-Goal "push the plate to the front of the stove")
+  are not spelled out. Agreed reading, decided before either coder had compared any codes:
+  - Pushing the target is the final action (no lift involved).
+  - Never got to the target → `NO_REACH`; pushed a different object instead → `WRONG_OBJECT`.
+  - Got to the target but never moved it (gripper closes beside it or pushes past it) →
+    `GRASP_MISS`.
+  - Pushed the target but dragged another object along, and that spoils the result →
+    `EXTRA_OBJECT` (rule 5).
+  - Pushed the target, it ended in the wrong spot, and the robot stopped or moved away →
+    `PLACE_MISS`.
+  - Still pushing with no visible mistake when time ran out → `TIMEOUT`.
+- Applies to all E5 coding. No push video had been coded under a different reading. Reported
+  as a deviation in the E5 section of the report.
