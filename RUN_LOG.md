@@ -412,6 +412,36 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   `E3-<setting>-<suite>.jsonl` (results/README naming) before merging, contents unchanged.
   Raw rates only; the QRP and its interval come from `qrp_bootstrap.py` on the full grid.
 
+### E5 · Blinded failure-mode coding: sample, κ, unblinded report (Smitha, Amina)
+- Codebook: `docs/FAILURE_CODEBOOK.md` v1, frozen by #18 (3082c1d) before any core video was watched.
+- Sample (2026-11-23, Smitha, qvla-l4 · vqb_b · repo main @ 3082c1d), drawn once:
+  `python scripts/e5_videos.py sample --videos /opt/qvla/videos --out /opt/qvla/e5 --w4-per-direction 15 --seed 0`
+  → 166 videos (30 shared) for 174 selected pairs out of 316 discordant pairs: all 56 VE-W4 pairs
+  and up to 15 W4 pairs per condition and direction. Key in `/opt/qvla/e5/key/` (chmod 700),
+  not opened until coding was finished.
+- Coding (Nov 23–26): Amina coder A, Smitha coder B, each in her own copy of the sheet. The 30
+  shared videos were coded independently first.
+  `python scripts/e5_videos.py merge --a coding_sheet_A.csv --b coding_sheet_B.csv --to coding_sheet_final.csv --force`
+  `python scripts/e5_videos.py kappa --sheet coding_sheet_final.csv`
+  → **Cohen's κ = 0.76 on the 30 shared videos (25 agree)**, on the independent codes.
+- Resolution (2026-11-25, call): the 5 disagreements were settled by the rule that decides each,
+  in `final_code`: v532db SLIP (rule 2, lifted), v5db86 SLIP (rule 6, fell before release),
+  v8d705 EXTRA_OBJECT (push clarification), vb7864 WRONG_OBJECT (rule 1, only the wrong object),
+  vf9127 TIMEOUT (rules 3 and 7, no visible mistake at the furthest stage).
+- Clarifications agreed while coding, codebook v1 unchanged: push tasks (Decisions, PR #20);
+  two-step tasks (2026-11-25, e.g. "open the top drawer and put the bowl inside"): the stages
+  run across the whole instruction, and the code is how the last attempt ended at the furthest
+  stage reached in either step.
+- Report (2026-11-26, Smitha, qvla-l4 · vqb_b · repo main @ 6c43c01), after all 166 videos had a code:
+  `python scripts/e5_videos.py report --out /opt/qvla/e5 --md /opt/qvla/e5/E5_report.md`
+- Output files: `results/E5/E5_report.md` (counts per condition, pair and failing setting),
+  `results/E5/coding_sheet_final.csv` (both coders' codes and notes, final codes),
+  `results/E5/key.csv` (video ID → condition, pair, failing setting; published after unblinding).
+- Result (descriptive, sampled discordant episodes only): perception codes are rare for every
+  setting (WRONG_OBJECT + NO_REACH: 1 of 20 VE-W4 failures under shift, 3 of 45 W4 failures
+  under shift). VE-W4's own failures under shift are mostly PLACE_MISS (13 of 20); its BF16
+  counterparts spread over grasp, slip and placement. No note used `first: WRONG_OBJECT`.
+
 ### A1 · QRP analysis on the full core grid (Amina)
 - Date / who: 2026-11-13 18:20 PT · Amina (laptop, no GPU)
 - Data / commit: `main` @ `5355f53` (all core files merged: E2 clean 2,400 episodes; E3 lighting,
