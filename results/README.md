@@ -16,6 +16,7 @@ results/<experiment>/[<condition>/]<experiment>-<setting>-<suite>.jsonl
 | E2 | `results/E2/clean/E2-VE-W4-object.jsonl` |
 | E3 | `results/E3/lighting/E3-W4-goal.jsonl` |
 | E4 | `results/E4/language/E4-BF16-spatial.jsonl` |
+| E5 | `results/E5/E5_report.md`, `coding_sheet_final.csv`, `key.csv` (failure coding, not JSONL) |
 
 **Setting names:** `BF16`, `NOOP`, `VE-W4`, `W4` (whole model), `W8` (whole model),
 optional `AH-W4`, `VE-W2`. **Suites:** `spatial`, `object`, `goal`.

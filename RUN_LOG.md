@@ -437,6 +437,50 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   commit (command only, results not shared before her run): all numbers identical.
 
 
+
+### E5 · Blinded failure-mode coding: sample, κ, unblinded report (Smitha, Amina)
+- Codebook: `docs/FAILURE_CODEBOOK.md` v1, frozen by #18 (3082c1d) before any core video was watched.
+- Sample (2026-11-23, Smitha, qvla-l4 · vqb_b · repo main @ 3082c1d), drawn once:
+  `python scripts/e5_videos.py sample --videos /opt/qvla/videos --out /opt/qvla/e5 --w4-per-direction 15 --seed 0`
+  → 166 videos (30 shared) for 174 selected pairs out of 316 discordant pairs: all 56 VE-W4 pairs
+  and up to 15 W4 pairs per condition and direction. Key in `/opt/qvla/e5/key/` (chmod 700),
+  not opened until coding was finished.
+- Coding (Nov 23–26): Amina coder A, Smitha coder B, each in her own copy of the sheet. The 30
+  shared videos were coded independently first.
+  `python scripts/e5_videos.py merge --a coding_sheet_A.csv --b coding_sheet_B.csv --to coding_sheet_final.csv --force`
+  `python scripts/e5_videos.py kappa --sheet coding_sheet_final.csv`
+  → **Cohen's κ = 0.76 on the 30 shared videos (25 agree)**, on the independent codes.
+- Resolution (2026-11-25, call): the 5 disagreements were settled by the rule that decides each,
+  in `final_code`: v532db SLIP (rule 2, lifted), v5db86 SLIP (rule 6, fell before release),
+  v8d705 EXTRA_OBJECT (push clarification), vb7864 WRONG_OBJECT (rule 1, only the wrong object),
+  vf9127 TIMEOUT (rules 3 and 7, no visible mistake at the furthest stage).
+- Clarifications agreed while coding, codebook v1 unchanged: push tasks (Decisions, PR #20);
+  two-step tasks (e.g. "open the top drawer and put the bowl inside"): the stages run across the
+  whole instruction, and the code is how the last attempt ended at the furthest stage reached in
+  either step (rule 1). History: the two-step question came up on 2026-11-25 (vf9127); on
+  2026-11-26 a "code the first mistake" reading was also discussed and rejected because it
+  conflicts with rule 1 and with codes already given (vf9127, ve20e3, vc0aa0, vc6c15). Under
+  either reading every two-step video keeps its code except v08b6a.
+- Post-unblinding correction (2026-11-26): v08b6a (clean, W4 pair, W4 failed) GRASP_MISS → SLIP.
+  On re-checking, coder A confirmed the bowl had been lifted and then slipped, with no later
+  grasp, so under the two-step rule its furthest stage is carrying, not grasping. Codes only; the report was regenerated
+  (one count moved from GRASP_MISS to SLIP in clean/W4/W4). No other code changed after
+  unblinding; two notes (vac7c4, v08b6a) were reworded without changing codes.
+- Report (2026-11-26, Smitha, qvla-l4 · vqb_b · repo main @ 6c43c01), after all 166 videos had a code:
+  `python scripts/e5_videos.py report --out /opt/qvla/e5 --md /opt/qvla/e5/E5_report.md`
+- Output files: `results/E5/E5_report.md` (counts per condition, pair and failing setting),
+  `results/E5/coding_sheet_final.csv` (both coders' codes and notes, final codes),
+  `results/E5/key.csv` (video ID → condition, pair, failing setting; published after unblinding).
+- Result (descriptive, sampled discordant episodes only):
+  - Perception codes are rare for every setting: WRONG_OBJECT + NO_REACH in 1 of 20 VE-W4
+    failures under shift and 3 of 45 W4 failures under shift.
+  - Under shift (lighting + background + layout), where only VE-W4 failed, 13 of 20 are
+    PLACE_MISS; where only BF16 failed in the same pairs, 2 of 13 are PLACE_MISS (GRASP_MISS 5,
+    SLIP 3, EXTRA_OBJECT 2, TIMEOUT 1). On clean scenes the two directions look alike
+    (PLACE_MISS 5 of 11 vs 6 of 12). Small numbers; an off-centre placement can still have a
+    visual cause (the codebook only counts gross perception errors as such).
+  - No note used `first: WRONG_OBJECT`.
+
 ---
 
 ## Decisions
