@@ -436,6 +436,38 @@ Each took ~55 min; inference latency ~0.44 s per chunk, peak VRAM 8.4 GB.
   projection (1.17 pp). **Independently reproduced** by Smitha on 2026-11-13 from the same
   commit (command only, results not shared before her run): all numbers identical.
 
+### A2 · Mixed-effects sensitivity model (Smitha)
+- Date / who: 2026-11-26 · Smitha (laptop, Windows, R 4.6.2; lme4 version recorded in
+  `analysis/mixed_model.md`).
+- Data / commit: `main` @ `6c43c01` (same core files and manifest as A1).
+- Commands:
+  `python scripts/mixed_model_data.py configs/qrp/study_manifest.yaml --base-dir . --out analysis/mixed_model_long.csv`
+  `Rscript analysis/mixed_model.R analysis/mixed_model_long.csv analysis/mixed_model.md analysis/mixed_model.json`
+  The first step needs VLAQuantBench installed (it reuses `qrp_bootstrap.load_cell`); on the
+  laptop VLAQuantBench is not installed, so the R step used the `mixed_model_long.csv` that
+  the same script produced in the sandbox run below (committed with this entry).
+- Model (proposal Eq. 7): `success ~ Q * S + (1 | task) + (1 | pair)`, logistic, `glmer`
+  (Laplace, bobyqa), BF16 versus one quantized setting on the matched episodes of A1, clean
+  versus pooled visual shifts and versus each shift. Wald 95% intervals, descriptive.
+- Result:
+  - **VE-W4, clean vs pooled visual: b3 = −0.61 [−1.98, +0.77] (log-odds), p = 0.39.**
+    Same direction as the H1 QRP (+0.9 pp, slightly more loss under shift) and, like it,
+    compatible with no extra penalty.
+  - Per shift, VE-W4: lighting −0.79 [−2.46, +0.90], background +0.07 [−1.53, +1.67],
+    layout −1.04 [−2.66, +0.59].
+  - W4 pooled −0.19 [−0.68, +0.30]; W8 pooled +0.18 [−1.30, +1.67]. No interval excludes 0.
+- Checks: matched-episode counts equal A1 (600 clean, 300 per shift, W8 120 per shift);
+  success rates per cell equal `analysis/qrp.md`. BF16 and VE-W4/W8 agree on most episodes, so
+  the pair SD is large and the Laplace fit is the weak point; a conditional logistic
+  regression with pairs as strata (`survival::clogit`, no approximation) gives the same signs
+  and the same conclusion (VE-W4 pooled −0.52 [−1.59, +0.56]). Three singular fits (VE-W4
+  pooled, W8 pooled, W8 layout: task SD estimated at 0), listed in the output.
+- Cross-check: an earlier run of the same scripts in a Linux sandbox (R 4.3.3, lme4 1.1.35.1)
+  gave the same point estimates; there the VE-W4 and W8 pooled fits were not singular and
+  their intervals slightly narrower (VE-W4 −0.61 [−1.88, +0.67]). The committed numbers are
+  this laptop run.
+- Notes: the log-odds interaction and QRP agree, so the H1 result does not depend on the
+  success-rate scale (proposal, sensitivity analysis).
 
 
 ### E5 · Blinded failure-mode coding: sample, κ, unblinded report (Smitha, Amina)

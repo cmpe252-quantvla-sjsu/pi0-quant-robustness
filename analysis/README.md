@@ -6,7 +6,7 @@ a script, so no number is copied by hand.
 | File | Made by | What |
 |---|---|---|
 | `qrp.md`, `qrp.json` | `scripts/qrp_bootstrap.py` | Success rates, gaps, QRP, H1 decision, Holm tests |
-| `mixed_model.R` (planned) | Amina | Logistic mixed-effects sensitivity model (proposal Eq. 7) |
+| `mixed_model.md`, `mixed_model.json` | `scripts/mixed_model_data.py` → `mixed_model_long.csv`, then `analysis/mixed_model.R` (lme4) | Logistic mixed-effects sensitivity model (proposal Eq. 7), with a conditional-logistic check |
 | figures (planned) | Both | Success-rate and QRP plots for the report |
 | `failure_coding/` (planned) | Both | E5 codes and Cohen's κ (codebook: `docs/FAILURE_CODEBOOK.md`) |
 
